@@ -53,58 +53,81 @@ export default function FeaturedCarousel({
         }
       }}
     >
-      <span className="featured-label">SELEÇÃO DO ARTISTA</span>
-      <button
-        type="button"
-        className="featured-image"
-        aria-label={`Ampliar ${art.title}`}
-        onClick={() => onOpen(art.id)}
-      >
-        <img
-          src={`${mediaBase}/${art.id}`}
-          alt={art.alt}
-          fetchPriority="high"
-        />
-      </button>
-      <div className="featured-caption" aria-live="polite" aria-atomic="true">
-        <strong>{art.title}</strong>
-        <span>
-          {index + 1} / {artworks.length}
-        </span>
-      </div>
-      {multiple && (
-        <div className="featured-controls">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Arte em destaque anterior"
-            onClick={() => move(-1)}
-          >
-            <ChevronLeft size={19} />
-          </button>
-          <div className="featured-dots" aria-label="Escolher arte em destaque">
-            {artworks.map((item, position) => (
-              <button
-                type="button"
-                key={item.id}
-                aria-label={`Mostrar ${item.title}`}
-                aria-pressed={position === index}
-                onClick={() => setIndex(position)}
-              >
-                <span />
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Próxima arte em destaque"
-            onClick={() => move(1)}
-          >
-            <ChevronRight size={19} />
-          </button>
+      <div className="featured-stage">
+        <button
+          type="button"
+          className="featured-image"
+          aria-label={`Ampliar ${art.title}`}
+          onClick={() => onOpen(art.id)}
+        >
+          <img
+            src={`${mediaBase}/${art.id}`}
+            alt={art.alt}
+            fetchPriority="high"
+          />
+        </button>
+        <div className="featured-caption" aria-live="polite" aria-atomic="true">
+          <span className="featured-label">SELEÇÃO DO ARTISTA</span>
+          <strong>{art.title}</strong>
+          {art.description && <p>{art.description}</p>}
         </div>
-      )}
+        {multiple && (
+          <div className="featured-arrows">
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Arte em destaque anterior"
+              onClick={() => move(-1)}
+            >
+              <ChevronLeft size={19} />
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Próxima arte em destaque"
+              onClick={() => move(1)}
+            >
+              <ChevronRight size={19} />
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="featured-controls">
+        <div
+          className="featured-thumbnails"
+          aria-label="Escolher arte em destaque"
+        >
+          {artworks.map((item, position) => (
+            <button
+              type="button"
+              key={item.id}
+              aria-label={`Mostrar ${item.title}`}
+              aria-pressed={position === index}
+              onClick={() => setIndex(position)}
+            >
+              <img
+                src={`${mediaBase}/${item.id}?size=thumbnail`}
+                alt=""
+                loading="lazy"
+              />
+            </button>
+          ))}
+        </div>
+        <div
+          className="featured-position"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span className="featured-dots" aria-hidden="true">
+            {artworks.map((item, position) => (
+              <i key={item.id} className={position === index ? "active" : ""} />
+            ))}
+          </span>
+          <span>
+            {index + 1} / {artworks.length}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

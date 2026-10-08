@@ -463,59 +463,69 @@ function ServiceEditor({
         </span>
       </summary>
       <div className="service-editor-body">
-        <div className="field-row">
+        <div className="service-questions">
+          <h2>Perguntas do pedido</h2>
+          {s.questions.map((q, index) => (
+            <QuestionEditor
+              key={q.id}
+              q={q}
+              previous={s.questions.slice(0, index)}
+              media={media}
+              onChange={update}
+              onRemove={() =>
+                onChange({
+                  ...s,
+                  questions: s.questions.filter((item) => item.id !== q.id),
+                })
+              }
+              moveUp={index ? () => reorder(index, index - 1) : undefined}
+              moveDown={
+                index < s.questions.length - 1
+                  ? () => reorder(index, index + 1)
+                  : undefined
+              }
+            />
+          ))}
+          <div className="editor-footer">
+            <button
+              className="button ghost small"
+              disabled={s.questions.length >= 50}
+              onClick={() =>
+                onChange({ ...s, questions: [...s.questions, newQuestion()] })
+              }
+            >
+              <Plus size={15} /> Nova pergunta
+            </button>
+            <button className="button ghost small danger" onClick={onRemove}>
+              <Trash2 size={15} /> Remover serviço
+            </button>
+          </div>
+        </div>
+        <aside className="service-pricing">
+          <h2>Serviço & preço base</h2>
+          <div className="service-fields">
+            <Text
+              label="Nome do serviço"
+              value={s.name}
+              max={100}
+              onChange={(name) => onChange({ ...s, name })}
+            />
+            <Price
+              label="Preço base (R$)"
+              value={s.basePrice}
+              onChange={(basePrice) => onChange({ ...s, basePrice })}
+            />
+          </div>
           <Text
-            label="Nome do serviço"
-            value={s.name}
-            max={100}
-            onChange={(name) => onChange({ ...s, name })}
+            label="Descrição"
+            value={s.description}
+            onChange={(description) => onChange({ ...s, description })}
           />
-          <Price
-            label="Preço base (R$)"
-            value={s.basePrice}
-            onChange={(basePrice) => onChange({ ...s, basePrice })}
-          />
-        </div>
-        <Text
-          label="Descrição"
-          value={s.description}
-          onChange={(description) => onChange({ ...s, description })}
-        />
-        {s.questions.map((q, index) => (
-          <QuestionEditor
-            key={q.id}
-            q={q}
-            previous={s.questions.slice(0, index)}
-            media={media}
-            onChange={update}
-            onRemove={() =>
-              onChange({
-                ...s,
-                questions: s.questions.filter((item) => item.id !== q.id),
-              })
-            }
-            moveUp={index ? () => reorder(index, index - 1) : undefined}
-            moveDown={
-              index < s.questions.length - 1
-                ? () => reorder(index, index + 1)
-                : undefined
-            }
-          />
-        ))}
-        <div className="editor-footer">
-          <button
-            className="button ghost small"
-            disabled={s.questions.length >= 50}
-            onClick={() =>
-              onChange({ ...s, questions: [...s.questions, newQuestion()] })
-            }
-          >
-            <Plus size={15} /> Nova pergunta
-          </button>
-          <button className="button ghost small danger" onClick={onRemove}>
-            <Trash2 size={15} /> Remover serviço
-          </button>
-        </div>
+          <p className="muted">
+            A estimativa soma o preço base e os adicionais fixos de cada
+            resposta.
+          </p>
+        </aside>
       </div>
     </details>
   );
@@ -734,7 +744,7 @@ export default function Admin() {
       </div>
     );
   const titles = {
-    leads: ["Visão do estúdio", "Cada ideia tem um próximo passo."],
+    leads: ["Leads & trabalhos", "Cada ideia tem um próximo passo."],
     forms: [
       "Formulários & preços",
       "Um orçamento começa com as perguntas certas.",
@@ -752,7 +762,18 @@ export default function Admin() {
           <span className="brand-mark">
             <Sparkles size={19} />
           </span>
-          Ateliê<span className="admin-brand-caption">PAINEL DO ARTISTA</span>
+          <span className="admin-brand-text">
+            {cfg.brand}
+            <span className="admin-brand-caption">PAINEL DO ARTISTA</span>
+          </span>
+        </a>
+        <a
+          className="sidebar-public-link"
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Ver site público <ArrowUpRight size={16} />
         </a>
         <div className="workspace-label">SEU ESPAÇO</div>
         <nav>
@@ -765,6 +786,7 @@ export default function Admin() {
             <button
               key={item.id}
               className={tab === item.id ? "active" : ""}
+              aria-current={tab === item.id ? "page" : undefined}
               onClick={() => setTab(item.id as Tab)}
             >
               <item.icon size={18} />
@@ -775,23 +797,7 @@ export default function Admin() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <Sparkles size={19} />
-          <strong>
-            Seu trabalho merece
-            <br />
-            um espaço só dele.
-          </strong>
-          <p>
-            Organize as ideias.
-            <br />
-            Guarde tempo para criar.
-          </p>
-        </div>
         <div className="sidebar-bottom">
-          <a href="/" target="_blank" rel="noreferrer">
-            Ver site público <ArrowUpRight size={16} />
-          </a>
           <small>{session.email}</small>
           <a href="/cdn-cgi/access/logout">
             <LogOut size={15} /> Sair do painel
@@ -800,10 +806,7 @@ export default function Admin() {
       </aside>
       <div className="admin-main">
         <header className="admin-topbar">
-          <span>
-            {cfg.brand}
-            <span className="topbar-divider">/</span> Seu estúdio digital
-          </span>
+          <span>Painel do artista</span>
           <div>
             <span className="free-label">PLANO GRATUITO</span>
             <button
@@ -818,7 +821,10 @@ export default function Admin() {
               <Bell size={19} />
               {notification.attention > 0 && <b>{notification.attention}</b>}
             </button>
-            <div className="avatar">{cfg.brand.slice(0, 1).toUpperCase()}</div>
+            <span className="account-email">{session.email}</span>
+            <div className="avatar" aria-hidden="true">
+              {session.email.slice(0, 1).toUpperCase()}
+            </div>
           </div>
         </header>
         <main className="admin-content">
@@ -1164,106 +1170,7 @@ export default function Admin() {
             )}
             {tab === "media" && (
               <>
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Biblioteca de imagens</h2>
-                      <p>Use no portfólio e nos exemplos do formulário.</p>
-                    </div>
-                    <label className="button primary small upload-button">
-                      <ImagePlus size={16} /> Enviar imagem
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          if (file) run(() => upload(file));
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <p className="muted">
-                    {media.length}/500 imagens ·{" "}
-                    {(
-                      media.reduce((total, m) => total + m.bytes, 0) /
-                      1024 /
-                      1024
-                    ).toFixed(1)}{" "}
-                    / 300 MiB. Imagens são reduzidas no navegador; guarde os
-                    originais.
-                  </p>
-                  <div className="media-library">
-                    {media.map((m) => (
-                      <div key={m.id} className="media-item">
-                        {m.state === "ready" ? (
-                          <img
-                            src={`/api/admin/media/${m.id}?size=thumbnail`}
-                            alt={m.title}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="pending-image">Envio incompleto</div>
-                        )}
-                        <strong>{m.title}</strong>
-                        <small>{Math.round(m.bytes / 1024)} KiB</small>
-                        <div>
-                          <button
-                            className="button ghost small"
-                            disabled={
-                              m.state !== "ready" ||
-                              cfg.gallery.some((g) => g.id === m.id)
-                            }
-                            onClick={() =>
-                              change({
-                                ...cfg,
-                                gallery: [
-                                  ...cfg.gallery,
-                                  {
-                                    id: m.id,
-                                    title: m.title,
-                                    description: "",
-                                    alt: m.title,
-                                  },
-                                ],
-                              })
-                            }
-                          >
-                            <Plus size={13} /> Portfólio
-                          </button>
-                          <button
-                            className="icon-button danger"
-                            aria-label={`Excluir ${m.title}`}
-                            onClick={() => {
-                              if (
-                                confirm(
-                                  "Excluir esta imagem permanentemente? Imagens em uso precisam ser removidas do rascunho e publicadas antes.",
-                                )
-                              )
-                                run(async () => {
-                                  await api(`admin/media/${m.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  await refreshMedia();
-                                  return "Imagem excluída.";
-                                });
-                            }}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {!media.length && (
-                    <div className="empty-state">
-                      <Images size={31} />
-                      <h3>Um lugar para seus melhores traços.</h3>
-                      <p>Envie uma imagem para começar sua biblioteca.</p>
-                    </div>
-                  )}
-                </section>
-                <section className="panel">
+                <section className="panel featured-panel">
                   <div className="panel-heading">
                     <div>
                       <h2>Artes em destaque</h2>
@@ -1354,6 +1261,109 @@ export default function Admin() {
                       );
                     })}
                   </ol>
+                </section>
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Biblioteca de imagens</h2>
+                      <p>Use no portfólio e nos exemplos do formulário.</p>
+                    </div>
+                    <label className="button primary small upload-button">
+                      <ImagePlus size={16} /> Enviar imagem
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (file) run(() => upload(file));
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <p className="upload-guidance">
+                    JPEG, PNG ou WebP · até 20 MiB por arquivo. Use o botão
+                    Enviar imagem para escolher um arquivo.
+                  </p>
+                  <p className="muted">
+                    {media.length}/500 imagens ·{" "}
+                    {(
+                      media.reduce((total, m) => total + m.bytes, 0) /
+                      1024 /
+                      1024
+                    ).toFixed(1)}{" "}
+                    / 300 MiB. Imagens são reduzidas no navegador; guarde os
+                    originais.
+                  </p>
+                  <div className="media-library">
+                    {media.map((m) => (
+                      <div key={m.id} className="media-item">
+                        {m.state === "ready" ? (
+                          <img
+                            src={`/api/admin/media/${m.id}?size=thumbnail`}
+                            alt={m.title}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="pending-image">Envio incompleto</div>
+                        )}
+                        <strong>{m.title}</strong>
+                        <small>{Math.round(m.bytes / 1024)} KiB</small>
+                        <div>
+                          <button
+                            className="button ghost small"
+                            disabled={
+                              m.state !== "ready" ||
+                              cfg.gallery.some((g) => g.id === m.id)
+                            }
+                            onClick={() =>
+                              change({
+                                ...cfg,
+                                gallery: [
+                                  ...cfg.gallery,
+                                  {
+                                    id: m.id,
+                                    title: m.title,
+                                    description: "",
+                                    alt: m.title,
+                                  },
+                                ],
+                              })
+                            }
+                          >
+                            <Plus size={13} /> Portfólio
+                          </button>
+                          <button
+                            className="icon-button danger"
+                            aria-label={`Excluir ${m.title}`}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  "Excluir esta imagem permanentemente? Imagens em uso precisam ser removidas do rascunho e publicadas antes.",
+                                )
+                              )
+                                run(async () => {
+                                  await api(`admin/media/${m.id}`, {
+                                    method: "DELETE",
+                                  });
+                                  await refreshMedia();
+                                  return "Imagem excluída.";
+                                });
+                            }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {!media.length && (
+                    <div className="empty-state">
+                      <Images size={31} />
+                      <h3>Um lugar para seus melhores traços.</h3>
+                      <p>Envie uma imagem para começar sua biblioteca.</p>
+                    </div>
+                  )}
                 </section>
                 <section className="panel">
                   <div className="panel-heading">
@@ -1576,6 +1586,18 @@ export default function Admin() {
                   >
                     Abrir repositório & guia <ArrowUpRight size={15} />
                   </a>
+                </section>
+                <section className="panel">
+                  <h2>Notificações</h2>
+                  <p>
+                    {session.emailEnabled
+                      ? "Novos pedidos chegam por e-mail e aparecem no painel."
+                      : "Novos pedidos aparecem no painel. O e-mail estará disponível após configurar o domínio."}
+                  </p>
+                  <p className="muted">
+                    {notification.attention} pedidos precisam de atenção. Use o
+                    sino no topo para abrir a lista.
+                  </p>
                 </section>
               </div>
             )}

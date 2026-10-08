@@ -79,7 +79,8 @@ function SecurityCheck({
         widget.current = window.turnstile.render(root.current, {
           sitekey: siteKey,
           action: "quote",
-          theme: "light",
+          theme: "dark",
+          size: "compact",
           callback: (token: string) => callback.current(token),
           "expired-callback": () => callback.current(""),
           "error-callback": () => {
@@ -352,11 +353,18 @@ export default function Portfolio({ preview }: { preview?: Config }) {
           <a className="small-cta" href="#encomendar">
             Vamos criar <ArrowUpRight size={16} />
           </a>
+          <a className="studio-link" href="/admin">
+            Área do artista <ArrowUpRight size={15} />
+          </a>
         </nav>
       </header>
       <main>
         <section className="hero" id="inicio">
           <div className="hero-copy">
+            <span className="studio-emblem" aria-hidden="true">
+              <Sparkles size={32} strokeWidth={1.5} />
+            </span>
+            <p className="studio-name">{config.brand}</p>
             <div className="eyebrow">
               <span className={`dot ${config.accepting ? "" : "closed"}`} />
               {config.accepting
@@ -372,9 +380,6 @@ export default function Portfolio({ preview }: { preview?: Config }) {
               <a className="text-link" href="#trabalhos">
                 Explore o portfólio <ArrowDown size={17} />
               </a>
-            </div>
-            <div className="hero-footnote">
-              <span>01 /</span> Criado para ser só seu.
             </div>
           </div>
           <div
@@ -400,9 +405,6 @@ export default function Portfolio({ preview }: { preview?: Config }) {
                 <small>O portfólio está sendo preparado.</small>
               </div>
             )}
-            <span className="art-stamp">
-              IDEIAS GANHAM FORMA <Sparkles size={15} />
-            </span>
           </div>
         </section>
         {loadError && (
@@ -444,6 +446,9 @@ export default function Portfolio({ preview }: { preview?: Config }) {
                     </div>
                     <span>{String(index + 1).padStart(2, "0")}</span>
                   </div>
+                  <span className="art-view">
+                    Visualizar <ArrowUpRight size={15} />
+                  </span>
                 </button>
               ))}
             </div>
@@ -454,43 +459,6 @@ export default function Portfolio({ preview }: { preview?: Config }) {
               <span>Cada peça tem sua própria história.</span>
             </div>
           )}
-        </section>
-        <section className="process section" id="processo">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">DO PRIMEIRO PAPO À ARTE FINAL</span>
-              <h2>Você imagina. A gente cria.</h2>
-            </div>
-            <span className="section-index">02 — PROCESSO</span>
-          </div>
-          <div className="process-grid">
-            {[
-              {
-                n: "01",
-                title: "Conte sua ideia",
-                text: "Escolha o tipo de arte e os detalhes que fazem a diferença para você.",
-              },
-              {
-                n: "02",
-                title: "Vamos conversar",
-                text: "Receba uma estimativa inicial. O artista confirma o orçamento e combina os próximos passos.",
-              },
-              {
-                n: "03",
-                title: "Veja ganhar vida",
-                text: "Acompanhe a criação pelo contato combinado e aprove os detalhes da sua encomenda.",
-              },
-            ].map((item) => (
-              <div className="process-card" key={item.n}>
-                <span>
-                  {item.n}
-                  <ArrowUpRight size={19} />
-                </span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </div>
-            ))}
-          </div>
         </section>
         <section className="commission section" id="encomendar">
           <div className="commission-intro">
@@ -519,6 +487,43 @@ export default function Portfolio({ preview }: { preview?: Config }) {
                 Conversar pelo WhatsApp <ArrowUpRight size={17} />
               </a>
             )}
+            <div className="process" id="processo">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">DO PRIMEIRO PAPO À ARTE FINAL</span>
+                  <h2>Você imagina. A gente cria.</h2>
+                </div>
+                <span className="section-index">02 — PROCESSO</span>
+              </div>
+              <div className="process-grid">
+                {[
+                  {
+                    n: "01",
+                    title: "Conte sua ideia",
+                    text: "Escolha o tipo de arte e os detalhes que fazem a diferença para você.",
+                  },
+                  {
+                    n: "02",
+                    title: "Vamos conversar",
+                    text: "Receba uma estimativa inicial. O artista confirma o orçamento e combina os próximos passos.",
+                  },
+                  {
+                    n: "03",
+                    title: "Veja ganhar vida",
+                    text: "Acompanhe a criação pelo contato combinado e aprove os detalhes da sua encomenda.",
+                  },
+                ].map((item) => (
+                  <div className="process-card" key={item.n}>
+                    <span>
+                      {item.n}
+                      <ArrowUpRight size={19} />
+                    </span>
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="quote-card">
             {success ? (

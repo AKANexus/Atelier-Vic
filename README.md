@@ -2,6 +2,12 @@
 
 Site em português brasileiro, com estimativas em BRL, formulários condicionais e gestão de leads e trabalhos. Hospedagem: Cloudflare Pages Free, Functions/Workers Free, D1 Free e KV Free. Acesso administrativo: Cloudflare Access Free. Não habilite planos pagos.
 
+## Identidade visual
+
+A interface usa a identidade **Obsidian Crimson**: fundo escuro, painéis em carvão, acentos carmesim e layouts adaptados a computador, tablet e celular. Os tokens, componentes e breakpoints ficam em `src/styles.css`. Space Grotesk, Sora e JetBrains Mono são empacotadas localmente via Fontsource; não há dependência de Google Fonts ou Tailwind por CDN. As licenças acompanham o site em `/fonts-LICENSE.txt`.
+
+Nome, apresentação, contato, serviços, preços e artes continuam configuráveis no painel. O carrossel mostra até cinco destaques com miniaturas, navegação manual e imagens sem recorte. Salvar rascunho, conferir a prévia e publicar continuam sendo ações separadas. A mudança visual não adiciona funcionalidades dos mockups, altera dados existentes ou exige novos recursos Cloudflare.
+
 ## Desenvolvimento local
 
 Requisitos: Node.js 22 ou 24 LTS e npm. Use a versão do lockfile: `npm ci`.
