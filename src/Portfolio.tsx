@@ -1,0 +1,842 @@
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  Palette,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { api, body } from "./api";
+import {
+  defaultConfig,
+  money,
+  quote,
+  visible,
+  type Answers,
+  type Config,
+  type Question,
+} from "./domain";
+
+interface Turnstile {
+  render: (element: HTMLElement, options: Record<string, unknown>) => string;
+  remove: (id: string) => void;
+  reset: (id: string) => void;
+}
+declare global {
+  interface Window {
+    turnstile?: Turnstile;
+  }
+}
+let turnstileScript: Promise<void> | undefined;
+function loadTurnstile() {
+  if (!turnstileScript)
+    turnstileScript = new Promise<void>((resolve, reject) => {
+      if (window.turnstile) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src =
+        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.onload = () => resolve();
+      script.onerror = () => {
+        turnstileScript = undefined;
+        reject(
+          new Error("Não foi possível carregar a verificação de segurança."),
+        );
+      };
+      document.head.appendChild(script);
+    });
+  return turnstileScript;
+}
+function SecurityCheck({
+  siteKey,
+  onToken,
+  reset,
+}: {
+  siteKey: string;
+  onToken: (token: string) => void;
+  reset: number;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const widget = useRef<string | undefined>(undefined);
+  const callback = useRef(onToken);
+  callback.current = onToken;
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let disposed = false;
+    loadTurnstile()
+      .then(() => {
+        if (disposed || !root.current || !window.turnstile) return;
+        widget.current = window.turnstile.render(root.current, {
+          sitekey: siteKey,
+          action: "quote",
+          theme: "light",
+          callback: (token: string) => callback.current(token),
+          "expired-callback": () => callback.current(""),
+          "error-callback": () => {
+            callback.current("");
+            setError("A verificação falhou. Tente novamente.");
+          },
+        });
+      })
+      .catch((error) => setError(error.message));
+    return () => {
+      disposed = true;
+      if (widget.current && window.turnstile)
+        window.turnstile.remove(widget.current);
+    };
+  }, [siteKey]);
+  useEffect(() => {
+    if (reset && widget.current && window.turnstile) {
+      window.turnstile.reset(widget.current);
+      callback.current("");
+    }
+  }, [reset]);
+  return (
+    <>
+      <div ref={root} />
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+function Samples({ ids }: { ids: string[] }) {
+  const base = window.location.pathname.startsWith("/admin")
+    ? "/api/admin/media"
+    : "/api/media";
+  return ids.length ? (
+    <div className="answer-samples">
+      {ids.map((id) => (
+        <a
+          key={id}
+          href={`${base}/${id}`}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Abrir exemplo em tamanho maior"
+        >
+          <img
+            src={`${base}/${id}?size=thumbnail`}
+            alt="Exemplo desta opção"
+            loading="lazy"
+          />
+        </a>
+      ))}
+    </div>
+  ) : null;
+}
+function QuestionInput({
+  question: q,
+  value,
+  onChange,
+}: {
+  question: Question;
+  value?: string | string[];
+  onChange: (value: string | string[]) => void;
+}) {
+  return (
+    <fieldset className="question">
+      <legend>
+        {q.label}
+        {q.required && <span className="required"> *</span>}
+      </legend>
+      {q.help && <p className="muted">{q.help}</p>}
+      <Samples ids={q.samples} />
+      {q.type === "single" || q.type === "multiple" ? (
+        <div className="answer-options">
+          {q.options.map((option) => {
+            const checked = Array.isArray(value)
+              ? value.includes(option.id)
+              : value === option.id;
+            return (
+              <label
+                key={option.id}
+                className={`answer-option ${checked ? "selected" : ""}`}
+              >
+                <div className="answer-option-title">
+                  <input
+                    type={q.type === "single" ? "radio" : "checkbox"}
+                    name={q.id}
+                    checked={checked}
+                    onChange={() =>
+                      onChange(
+                        q.type === "single"
+                          ? option.id
+                          : checked
+                            ? (Array.isArray(value) ? value : []).filter(
+                                (v) => v !== option.id,
+                              )
+                            : [
+                                ...(Array.isArray(value) ? value : []),
+                                option.id,
+                              ],
+                      )
+                    }
+                  />
+                  <span>{option.label}</span>
+                  {option.price > 0 && <small>+ {money(option.price)}</small>}
+                </div>
+                <Samples ids={option.samples} />
+                {option.manualReview && (
+                  <small className="muted">Será avaliado pelo artista</small>
+                )}
+              </label>
+            );
+          })}
+        </div>
+      ) : q.type === "long" ? (
+        <textarea
+          value={typeof value === "string" ? value : ""}
+          maxLength={3000}
+          onChange={(event) => onChange(event.target.value)}
+          rows={4}
+        />
+      ) : (
+        <input
+          type={q.type === "date" ? "date" : "text"}
+          value={typeof value === "string" ? value : ""}
+          maxLength={300}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+    </fieldset>
+  );
+}
+
+export default function Portfolio({ preview }: { preview?: Config }) {
+  const [config, setConfig] = useState<Config>(preview || defaultConfig);
+  const [version, setVersion] = useState(0);
+  const [siteKey, setSiteKey] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [serviceId, setServiceId] = useState("");
+  const [answers, setAnswers] = useState<Answers>({});
+  const [step, setStep] = useState(0);
+  const [contact, setContact] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    request: "",
+    references: "",
+    consent: false,
+  });
+  const [token, setToken] = useState("");
+  const [reset, setReset] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState<{
+    id: string;
+    estimate: number;
+  } | null>(null);
+  const key = useRef(crypto.randomUUID());
+  useEffect(() => {
+    if (preview) {
+      setConfig(preview);
+      return;
+    }
+    api<{ config: Config; version: number; turnstileSiteKey: string }>("config")
+      .then((result) => {
+        setConfig(result.config);
+        setVersion(result.version);
+        setSiteKey(result.turnstileSiteKey);
+        document.title = `${result.config.brand} · Arte sob encomenda`;
+      })
+      .catch((error) => setLoadError(error.message));
+  }, [preview]);
+  useEffect(() => {
+    if (zoom === null) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setZoom(null);
+    };
+    document.addEventListener("keydown", listener);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", listener);
+    };
+  }, [zoom]);
+  const service = config.services.find((s) => s.id === serviceId);
+  let indicative = service?.basePrice || 0;
+  try {
+    if (service) indicative = quote(service, answers, false).total;
+  } catch {
+    /* An incomplete selection is shown through form validation. */
+  }
+  function answer(id: string, value: string | string[]) {
+    if (!service) return;
+    const next = { ...answers, [id]: value };
+    const cleaned: Answers = {};
+    for (const q of service.questions)
+      if (visible(q, cleaned) && next[q.id] !== undefined)
+        cleaned[q.id] = next[q.id];
+    setAnswers(cleaned);
+    setError("");
+  }
+  function nextStep(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (!service) {
+      setError("Escolha o tipo de arte para continuar.");
+      return;
+    }
+    if (step === 1) {
+      try {
+        quote(service, answers);
+      } catch (error) {
+        setError((error as Error).message);
+        return;
+      }
+    }
+    setStep(step + 1);
+  }
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!service || busy || preview) return;
+    if (!token) {
+      setError("Conclua a verificação de segurança para enviar.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api<{ id: string; estimate: number }>("leads", {
+        method: "POST",
+        body: body({
+          key: key.current,
+          version,
+          serviceId,
+          answers,
+          ...contact,
+          consent: contact.consent,
+          referenceLinks: contact.references
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          turnstile: token,
+        }),
+      });
+      setSuccess(response);
+    } catch (error) {
+      setError((error as Error).message);
+      setReset((n) => n + 1);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const mediaBase = preview ? "/api/admin/media" : "/api/media";
+  return (
+    <div className={`portfolio ${preview ? "portfolio-preview" : ""}`}>
+      <header className="public-header">
+        <a className="brand" href="#inicio">
+          <span className="brand-mark">
+            <Sparkles size={20} />
+          </span>
+          {config.brand}
+        </a>
+        <nav>
+          <a href="#trabalhos">Trabalhos</a>
+          <a href="#processo">Como funciona</a>
+          <a className="small-cta" href="#encomendar">
+            Vamos criar <ArrowUpRight size={16} />
+          </a>
+        </nav>
+      </header>
+      <main>
+        <section className="hero" id="inicio">
+          <div className="hero-copy">
+            <div className="eyebrow">
+              <span className={`dot ${config.accepting ? "" : "closed"}`} />
+              {config.accepting
+                ? "Disponível para encomendas"
+                : "Portfólio & encomendas"}
+            </div>
+            <h1>{config.headline}</h1>
+            <p>{config.intro}</p>
+            <div className="hero-actions">
+              <a className="button primary" href="#encomendar">
+                Conte sua ideia <ArrowUpRight size={18} />
+              </a>
+              <a className="text-link" href="#trabalhos">
+                Explore o portfólio <ArrowDown size={17} />
+              </a>
+            </div>
+            <div className="hero-footnote">
+              <span>01 /</span> Criado para ser só seu.
+            </div>
+          </div>
+          <div className="hero-art">
+            {config.gallery.length ? (
+              <img
+                src={`${mediaBase}/${config.gallery[0].id}`}
+                alt={config.gallery[0].alt}
+              />
+            ) : (
+              <div className="studio-placeholder">
+                <Palette size={50} strokeWidth={1} />
+                <span>
+                  O próximo traço
+                  <br />
+                  começa com uma ideia.
+                </span>
+                <small>O portfólio está sendo preparado.</small>
+              </div>
+            )}
+            <span className="art-stamp">
+              IDEIAS GANHAM FORMA <Sparkles size={15} />
+            </span>
+          </div>
+        </section>
+        {loadError && (
+          <p className="notice error" role="alert">
+            Não foi possível carregar o estúdio. {loadError}
+          </p>
+        )}
+        <section className="section gallery-section" id="trabalhos">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">UM POUCO DO MEU UNIVERSO</span>
+              <h2>Traços que contam histórias.</h2>
+            </div>
+            <span className="section-index">01 — PORTFÓLIO</span>
+          </div>
+          {config.gallery.length ? (
+            <div className="gallery">
+              {config.gallery.map((art, index) => (
+                <button
+                  key={art.id}
+                  className="art-card"
+                  onClick={() => setZoom(index)}
+                  aria-label={`Ver ${art.title}`}
+                >
+                  <div className="art-image">
+                    <img
+                      src={`${mediaBase}/${art.id}`}
+                      alt={art.alt}
+                      loading="lazy"
+                    />
+                    <span className="art-open">
+                      <ArrowUpRight size={20} />
+                    </span>
+                  </div>
+                  <div className="art-caption">
+                    <div>
+                      <h3>{art.title}</h3>
+                      <p>{art.description}</p>
+                    </div>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-portfolio">
+              <Palette size={27} />
+              <p>Novos trabalhos estarão aqui em breve.</p>
+              <span>Cada peça tem sua própria história.</span>
+            </div>
+          )}
+        </section>
+        <section className="process section" id="processo">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">DO PRIMEIRO PAPO À ARTE FINAL</span>
+              <h2>Você imagina. A gente cria.</h2>
+            </div>
+            <span className="section-index">02 — PROCESSO</span>
+          </div>
+          <div className="process-grid">
+            {[
+              {
+                n: "01",
+                title: "Conte sua ideia",
+                text: "Escolha o tipo de arte e os detalhes que fazem a diferença para você.",
+              },
+              {
+                n: "02",
+                title: "Vamos conversar",
+                text: "Receba uma estimativa inicial. O artista confirma o orçamento e combina os próximos passos.",
+              },
+              {
+                n: "03",
+                title: "Veja ganhar vida",
+                text: "Acompanhe a criação pelo contato combinado e aprove os detalhes da sua encomenda.",
+              },
+            ].map((item) => (
+              <div className="process-card" key={item.n}>
+                <span>
+                  {item.n}
+                  <ArrowUpRight size={19} />
+                </span>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="commission section" id="encomendar">
+          <div className="commission-intro">
+            <span className="eyebrow">VAMOS TIRAR DO PAPEL?</span>
+            <h2>
+              Sua próxima arte
+              <br />
+              <em>começa aqui.</em>
+            </h2>
+            <p>
+              Algumas perguntas para entender sua ideia e preparar uma
+              estimativa. Sem compromisso, com espaço para conversar.
+            </p>
+            {config.email && (
+              <a className="text-link" href={`mailto:${config.email}`}>
+                <Mail size={17} /> Prefere falar direto?
+              </a>
+            )}
+            {config.whatsapp && (
+              <a
+                className="text-link"
+                href={`https://wa.me/${config.whatsapp}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Conversar pelo WhatsApp <ArrowUpRight size={17} />
+              </a>
+            )}
+          </div>
+          <div className="quote-card">
+            {success ? (
+              <div className="success">
+                <CheckCircle2 size={44} />
+                <h3>Sua ideia chegou!</h3>
+                <p>
+                  O artista recebeu seu pedido e vai conversar com você pelo
+                  contato informado.
+                </p>
+                <div className="estimate">
+                  <small>Estimativa inicial</small>
+                  <strong>{money(success.estimate)}</strong>
+                </div>
+                <small>
+                  Referência do pedido: {success.id.slice(0, 8).toUpperCase()}
+                </small>
+                <p className="muted">
+                  O valor final será confirmado pelo artista.
+                </p>
+              </div>
+            ) : !config.accepting ? (
+              <div className="closed-state">
+                <Sparkles size={33} />
+                <h3>A agenda está sendo preparada.</h3>
+                <p>
+                  Novas encomendas estarão disponíveis em breve. Enquanto isso,
+                  conheça o portfólio ou entre em contato.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="form-top">
+                  <span>SEU PEDIDO</span>
+                  <small>{step + 1} de 3</small>
+                </div>
+                <div className="steps">
+                  {["Sua arte", "Os detalhes", "Seu contato"].map(
+                    (label, index) => (
+                      <span
+                        key={label}
+                        className={step >= index ? "active" : ""}
+                      >
+                        <b>{step > index ? <Check size={13} /> : index + 1}</b>
+                        {label}
+                      </span>
+                    ),
+                  )}
+                </div>
+                <form onSubmit={step < 2 ? nextStep : submit}>
+                  {step === 0 && (
+                    <>
+                      <h3>O que vamos criar?</h3>
+                      <p className="muted">
+                        Escolha o ponto de partida da sua encomenda.
+                      </p>
+                      <div className="service-options">
+                        {config.services.map((item) => (
+                          <label
+                            key={item.id}
+                            className={`service-option ${serviceId === item.id ? "selected" : ""}`}
+                          >
+                            <input
+                              type="radio"
+                              name="service"
+                              checked={serviceId === item.id}
+                              onChange={() => {
+                                setServiceId(item.id);
+                                setAnswers({});
+                                setError("");
+                              }}
+                            />
+                            <div>
+                              <strong>{item.name}</strong>
+                              <p>{item.description}</p>
+                            </div>
+                            <small>
+                              A partir de
+                              <br />
+                              <b>{money(item.basePrice)}</b>
+                            </small>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {step === 1 && service && (
+                    <>
+                      <h3>Vamos aos detalhes.</h3>
+                      <p className="muted">
+                        Pequenas escolhas deixam a arte com a sua cara.
+                      </p>
+                      {service.questions
+                        .filter((q) => visible(q, answers))
+                        .map((q) => (
+                          <QuestionInput
+                            key={q.id}
+                            question={q}
+                            value={answers[q.id]}
+                            onChange={(value) => answer(q.id, value)}
+                          />
+                        ))}
+                      {!service.questions.length && (
+                        <p>
+                          Este tipo de arte não exige detalhes adicionais. Conte
+                          sua ideia no próximo passo.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {step === 2 && (
+                    <>
+                      <h3>Como podemos falar com você?</h3>
+                      <p className="muted">
+                        Seu pedido será revisado pessoalmente pelo artista.
+                      </p>
+                      <label>
+                        Seu nome *
+                        <input
+                          autoComplete="name"
+                          required
+                          minLength={2}
+                          maxLength={150}
+                          value={contact.name}
+                          onChange={(e) =>
+                            setContact({ ...contact, name: e.target.value })
+                          }
+                        />
+                      </label>
+                      <div className="field-row">
+                        <label>
+                          E-mail *
+                          <input
+                            type="email"
+                            autoComplete="email"
+                            required
+                            maxLength={254}
+                            value={contact.email}
+                            onChange={(e) =>
+                              setContact({ ...contact, email: e.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          WhatsApp (opcional)
+                          <input
+                            type="tel"
+                            autoComplete="tel"
+                            maxLength={30}
+                            value={contact.phone}
+                            onChange={(e) =>
+                              setContact({ ...contact, phone: e.target.value })
+                            }
+                          />
+                        </label>
+                      </div>
+                      <label>
+                        Conte um pouco mais
+                        <textarea
+                          rows={4}
+                          maxLength={3000}
+                          placeholder="Personagens, clima, cores, prazo… o que você tem em mente?"
+                          value={contact.request}
+                          onChange={(e) =>
+                            setContact({ ...contact, request: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Links de referência (até 5)
+                        <textarea
+                          rows={2}
+                          placeholder="Um link HTTPS por linha"
+                          value={contact.references}
+                          onChange={(e) =>
+                            setContact({
+                              ...contact,
+                              references: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <div className="privacy-note">
+                        <p>{config.privacy}</p>
+                        <label className="check-label">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={contact.consent}
+                            onChange={(e) =>
+                              setContact({
+                                ...contact,
+                                consent: e.target.checked,
+                              })
+                            }
+                          />{" "}
+                          Concordo com o uso desses dados para este pedido.
+                        </label>
+                      </div>
+                      {preview ? (
+                        <p className="notice">
+                          Prévia do rascunho: o envio está desativado.
+                        </p>
+                      ) : siteKey ? (
+                        <SecurityCheck
+                          siteKey={siteKey}
+                          onToken={setToken}
+                          reset={reset}
+                        />
+                      ) : (
+                        <p className="error">
+                          O envio ainda está sendo configurado. Entre em contato
+                          com o estúdio.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {error && (
+                    <p className="error notice" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  {service && (
+                    <div className="estimate-bar">
+                      <div>
+                        <small>Estimativa inicial</small>
+                        <strong>{money(indicative)}</strong>
+                      </div>
+                      <span>
+                        O artista confirma
+                        <br />o orçamento final.
+                      </span>
+                    </div>
+                  )}
+                  <div className="form-actions">
+                    {step > 0 && (
+                      <button
+                        className="button ghost"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setStep(step - 1);
+                          setError("");
+                        }}
+                      >
+                        <ChevronLeft size={17} /> Voltar
+                      </button>
+                    )}
+                    <button
+                      className="button primary"
+                      type="submit"
+                      disabled={busy || (step === 2 && (!!preview || !siteKey))}
+                    >
+                      {busy
+                        ? "Enviando…"
+                        : step === 2
+                          ? "Enviar minha ideia"
+                          : "Continuar"}
+                      <ArrowRight size={17} />
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </section>
+      </main>
+      <footer className="public-footer">
+        <a className="brand" href="#inicio">
+          <span className="brand-mark">
+            <Sparkles size={17} />
+          </span>
+          {config.brand}
+        </a>
+        <span>Arte feita por gente, para gente.</span>
+        <a href="/admin">
+          Área do artista <ArrowUpRight size={14} />
+        </a>
+      </footer>
+      {zoom !== null && (
+        <div
+          className="lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={config.gallery[zoom].title}
+          onClick={() => setZoom(null)}
+        >
+          <button
+            className="lightbox-close"
+            onClick={() => setZoom(null)}
+            aria-label="Fechar imagem"
+            autoFocus
+          >
+            <X />
+          </button>
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              setZoom(
+                (zoom + config.gallery.length - 1) % config.gallery.length,
+              );
+            }}
+            aria-label="Imagem anterior"
+          >
+            <ChevronLeft />
+          </button>
+          <figure onClick={(event) => event.stopPropagation()}>
+            <img
+              src={`${mediaBase}/${config.gallery[zoom].id}`}
+              alt={config.gallery[zoom].alt}
+            />
+            <figcaption>
+              <strong>{config.gallery[zoom].title}</strong>
+              <p>{config.gallery[zoom].description}</p>
+            </figcaption>
+          </figure>
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              setZoom((zoom + 1) % config.gallery.length);
+            }}
+            aria-label="Próxima imagem"
+          >
+            <ChevronRight />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

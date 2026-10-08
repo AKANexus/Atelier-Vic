@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "victor-quote-manager",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-10-08",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "victor-quote-production",
+      "database_id": "b7e9d8a2-de45-4d53-9dea-e7614f4ccb73",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "kv_namespaces": [
+    { "binding": "MEDIA", "id": "e1848ef39b854defb8e92ef2fcfeba4c" },
+  ],
+  "env": {
+    "preview": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "victor-quote-preview",
+          "database_id": "fa624948-1bc6-4ada-ab61-941f19ec787a",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "kv_namespaces": [
+        { "binding": "MEDIA", "id": "a2c6f33a4e844664975aa08b9249567e" },
+      ],
+    },
+  },
+}

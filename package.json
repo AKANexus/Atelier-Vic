@@ -1,0 +1,35 @@
+{
+  "name": "victor-quote-manager",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "wrangler pages dev dist --port 8788",
+    "test": "vitest run",
+    "test:local": "node scripts/smoke-local.mjs",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:production": "wrangler d1 migrations apply DB --remote",
+    "backup": "node scripts/backup.mjs"
+  },
+  "dependencies": {
+    "jose": "^6.1.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261006.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "prettier": "^3.9.9",
+    "typescript": "~5.9.3",
+    "vite": "^7.0.0",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.0.0"
+  }
+}
