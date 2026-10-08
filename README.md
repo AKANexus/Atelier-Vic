@@ -40,9 +40,9 @@ npx wrangler d1 migrations apply DB --remote --env preview
 
 Crie a organização Zero Trust no plano **Free**, para até 50 usuários. O Cloudflare pode pedir um método de pagamento mesmo no plano gratuito; o titular preenche diretamente e revisa o plano antes de aceitar. Não ative uma assinatura paga.
 
-Use a integração de Access do projeto Pages para obter suporte ao domínio `pages.dev`: habilite a política de preview, abra **Manage**, e configure uma aplicação para o hostname de produção sem o wildcard. Limite os caminhos a `/admin`, `/admin/*` e `/api/admin/*` na mesma aplicação (mesmo AUD). Deixe o restante do site público. Reative a proteção de preview para os hostnames `*.victor-quote-manager.pages.dev`, com proteção integral das prévias. Veja [as instruções oficiais para Pages](https://developers.cloudflare.com/pages/platform/known-issues/#enable-access-on-your-pagesdev-domain).
+Use a integração de Access do projeto Pages para obter suporte ao domínio `pages.dev`: habilite a política de preview, abra **Manage**, vá à lista **Applications** e clique no nome da aplicação para abrir o editor (`/edit`); então configure uma aplicação para o hostname de produção sem o wildcard. Limite os caminhos a `/admin`, `/admin/*` e `/api/admin/*` na mesma aplicação (mesmo AUD). Deixe o restante do site público. Reative a proteção de preview para os hostnames `*.victor-quote-manager.pages.dev`, com proteção integral das prévias. Veja [as instruções oficiais para Pages](https://developers.cloudflare.com/pages/platform/known-issues/#enable-access-on-your-pagesdev-domain).
 
-Política **Allow**: apenas os dois e-mails fornecidos pelo responsável. Autenticação: **One-time PIN**. Sessão: 8 horas. Não use políticas de bypass. Para produção e preview, defina os valores corretos de cada aplicação em **Settings → Variables and Secrets**:
+Política **Allow**: apenas os dois e-mails fornecidos pelo responsável. Autenticação: **One-time PIN**. Sessão: 8 horas. Não use políticas de bypass. Para produção e preview, registre os valores públicos em `vars` no `wrangler.jsonc`, com os valores corretos de cada aplicação. Guarde os segredos em **Settings → Variables and Secrets**. O arquivo Wrangler é a fonte de configuração de bindings e variáveis de texto; não dependa de edições dessas variáveis no painel, pois um deploy pode sobrescrevê-las:
 
 | Nome                 | Valor                                                                                        |
 | -------------------- | -------------------------------------------------------------------------------------------- |
@@ -51,16 +51,16 @@ Política **Allow**: apenas os dois e-mails fornecidos pelo responsável. Autent
 | `ADMIN_EMAILS`       | E-mails permitidos, separados por vírgula; use um segredo para manter a configuração privada |
 | `EMAIL_ENABLED`      | `false` até configurar o domínio e testar as notificações                                    |
 
-Teste produção, URLs de deployment e preview: nenhuma rota administrativa deve expor dados sem JWT válido, AUD correto e e-mail permitido. A verificação no servidor protege mesmo hostnames esquecidos na configuração do Access. Confirme que a página pública abre em janela anônima.
+Teste produção, URLs de deployment e preview: nenhuma rota administrativa deve expor dados sem JWT válido, AUD correto e e-mail permitido. A verificação no servidor protege mesmo hostnames esquecidos na configuração do Access. Confirme que a página pública abre em janela anônima. Use o hostname estável de produção para administrar produção: aliases de deployment são protegidos pela aplicação de preview, cujo AUD diferente é rejeitado pela API de produção. Branches de preview usam o AUD e os recursos de preview.
 
 ### Turnstile
 
 Em **Application security → Turnstile**, crie um widget gratuito **Managed**. Cadastre o hostname de produção e somente os hostnames de teste que realmente serão usados. Configure:
 
-| Nome                   | Valor                                      |
-| ---------------------- | ------------------------------------------ |
-| `TURNSTILE_SITE_KEY`   | Chave pública do widget                    |
-| `TURNSTILE_SECRET_KEY` | Segredo do widget, armazenado como segredo |
+| Nome                   | Valor                                                 |
+| ---------------------- | ----------------------------------------------------- |
+| `TURNSTILE_SITE_KEY`   | Chave pública do widget em `vars` no `wrangler.jsonc` |
+| `TURNSTILE_SECRET_KEY` | Segredo do widget, armazenado como segredo            |
 
 Não use as chaves de teste em produção. O servidor valida o hostname e a ação `quote`. Faça redeploy depois de alterar bindings/segredos. O limite de submissões válidas é 20 por IP por hora; não substitui o Turnstile nem garante disponibilidade contra todo ataque.
 
@@ -86,7 +86,7 @@ A compra e renovação do domínio são despesas separadas. `pages.dev` permite 
 3. Configure Email Routing no domínio e verifique o destino do artista. Se já existir um serviço de e-mail, revise a configuração e não substitua seus registros MX sem planejar a compatibilidade.
 4. O Cloudflare permite enviar gratuitamente ao **destino verificado da própria conta**. Envio para destinatários arbitrários exige Workers Paid e está fora deste projeto. Não habilite esse plano. Veja [a regra oficial](https://developers.cloudflare.com/email-service/platform/pricing/).
 5. Copie `workers/wrangler.example.jsonc` para um arquivo local ignorado ou arquivo de configuração revisado. Substitua banco, remetente, destino e URL administrativa. Limite o binding `send_email` a `destination_address` do artista.
-6. Teste uma notificação para o destino verificado no plano Free. Somente depois defina `EMAIL_ENABLED=true` no Worker e no projeto Pages de produção e faça os respectivos deploys. Mantenha preview desativado.
+6. Teste uma notificação para o destino verificado no plano Free. Somente depois defina `EMAIL_ENABLED=true` nos arquivos Wrangler do Worker e do projeto Pages de produção e faça os respectivos deploys. Mantenha preview desativado.
 
 ```powershell
 npx wrangler deploy --config workers/wrangler.local.jsonc
