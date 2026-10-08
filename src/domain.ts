@@ -20,6 +20,90 @@ export const questionSchema = z.object({
   samples: z.array(id).max(3),
   condition: z.object({ questionId: id, optionId: id }).nullable(),
 });
+export const richTextSchema = z
+  .array(
+    z
+      .object({
+        type: z.enum([
+          "paragraph",
+          "heading",
+          "subheading",
+          "quote",
+          "bullet",
+          "number",
+        ]),
+        spans: z
+          .array(
+            z
+              .object({
+                text: z.string().max(10000),
+                bold: z.boolean().optional(),
+                italic: z.boolean().optional(),
+                underline: z.boolean().optional(),
+              })
+              .strict(),
+          )
+          .max(500),
+      })
+      .strict(),
+  )
+  .max(100)
+  .superRefine((blocks, ctx) => {
+    if (
+      blocks.reduce(
+        (count, block) =>
+          count + block.spans.reduce((n, span) => n + span.text.length, 0),
+        0,
+      ) > 10000
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "O texto do processo deve ter até 10.000 caracteres.",
+      });
+  });
+export type RichText = z.infer<typeof richTextSchema>;
+export const defaultProcess: RichText = [
+  { type: "heading", spans: [{ text: "Do primeiro papo à arte final" }] },
+  { type: "subheading", spans: [{ text: "Você imagina. A gente cria." }] },
+  {
+    type: "number",
+    spans: [
+      { text: "Conte sua ideia. ", bold: true },
+      {
+        text: "Escolha o tipo de arte e os detalhes que fazem a diferença para você.",
+      },
+    ],
+  },
+  {
+    type: "number",
+    spans: [
+      { text: "Vamos conversar. ", bold: true },
+      {
+        text: "Receba uma estimativa inicial. O artista confirma o orçamento e combina os próximos passos.",
+      },
+    ],
+  },
+  {
+    type: "number",
+    spans: [
+      { text: "Veja ganhar vida. ", bold: true },
+      {
+        text: "Acompanhe a criação pelo contato combinado e aprove os detalhes da sua encomenda.",
+      },
+    ],
+  },
+];
+export const presentationDefaults = {
+  mainImageId: null as string | null,
+  carouselLabel: "Seleção do artista",
+  portfolioTitle: "Um pouco do meu universo",
+  portfolioSubtitle: "Traços que contam histórias.",
+  commissionTitle: "Sua próxima arte começa aqui.",
+  commissionIntro:
+    "Algumas perguntas para entender sua ideia e preparar uma estimativa. Sem compromisso, com espaço para conversar.",
+  processContent: defaultProcess,
+};
+
 export const configSchema = z
   .object({
     brand: z.string().trim().min(1).max(100),
@@ -30,6 +114,34 @@ export const configSchema = z
     accepting: z.boolean(),
     privacy: z.string().trim().min(1).max(3000),
     featuredArtIds: z.array(id).max(5).default([]),
+    mainImageId: id.nullable().default(null),
+    carouselLabel: z
+      .string()
+      .trim()
+      .max(100)
+      .default(presentationDefaults.carouselLabel),
+    portfolioTitle: z
+      .string()
+      .trim()
+      .min(1)
+      .max(180)
+      .default(presentationDefaults.portfolioTitle),
+    portfolioSubtitle: z
+      .string()
+      .trim()
+      .max(300)
+      .default(presentationDefaults.portfolioSubtitle),
+    commissionTitle: z
+      .string()
+      .trim()
+      .min(1)
+      .max(180)
+      .default(presentationDefaults.commissionTitle),
+    commissionIntro: z
+      .string()
+      .max(1000)
+      .default(presentationDefaults.commissionIntro),
+    processContent: richTextSchema.default(defaultProcess),
     gallery: z
       .array(
         z.object({
@@ -147,6 +259,7 @@ export const money = (value: number) =>
     value / 100,
   );
 export const defaultConfig: Config = {
+  ...presentationDefaults,
   brand: "Seu estúdio",
   headline: "Uma ideia sua. Uma arte única.",
   intro:
@@ -252,6 +365,7 @@ export function quote(service: Service, input: Answers, complete = true) {
 export function mediaIds(config: Config): string[] {
   return [
     ...new Set([
+      ...(config.mainImageId ? [config.mainImageId] : []),
       ...config.gallery.map((i) => i.id),
       ...config.services.flatMap((s) =>
         s.questions.flatMap((q) => [

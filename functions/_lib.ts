@@ -161,7 +161,9 @@ export async function settings(
   );
 }
 export function published(row: Settings): Config {
-  return row.published ? JSON.parse(row.published) : defaultConfig;
+  return row.published
+    ? { ...defaultConfig, ...JSON.parse(row.published) }
+    : defaultConfig;
 }
 export async function hash(text: string) {
   const bytes = new Uint8Array(

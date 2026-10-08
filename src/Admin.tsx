@@ -38,6 +38,7 @@ import {
 } from "./domain";
 import { compressImage } from "./images";
 import Portfolio from "./Portfolio";
+import { RichTextEditor } from "./RichText";
 
 type Tab = "leads" | "forms" | "media" | "settings";
 type Session = {
@@ -1525,6 +1526,126 @@ export default function Admin() {
                     value={cfg.intro}
                     max={1000}
                     onChange={(intro) => change({ ...cfg, intro })}
+                  />
+                </section>
+                <section className="panel main-image-settings">
+                  <h2>Imagem Principal</h2>
+                  <p className="muted">
+                    Escolha um logo ou uma arte da biblioteca para aparecer no
+                    centro da apresentação. Não é necessário adicionar a imagem
+                    ao portfólio.
+                  </p>
+                  {cfg.mainImageId ? (
+                    <div className="main-image-preview">
+                      <img
+                        src={`/api/admin/media/${cfg.mainImageId}?size=thumbnail`}
+                        alt={
+                          media.find((item) => item.id === cfg.mainImageId)
+                            ?.title || "Imagem principal"
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={() => change({ ...cfg, mainImageId: null })}
+                      >
+                        Remover imagem principal
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="muted">
+                      Nenhuma imagem principal selecionada.
+                    </p>
+                  )}
+                  <details className="sample-picker">
+                    <summary>
+                      <Images size={16} /> Escolher imagem da biblioteca
+                    </summary>
+                    <div className="sample-grid main-image-options">
+                      {media
+                        .filter((item) => item.state === "ready")
+                        .map((item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            aria-label={`Usar ${item.title} como imagem principal`}
+                            aria-pressed={cfg.mainImageId === item.id}
+                            onClick={() =>
+                              change({ ...cfg, mainImageId: item.id })
+                            }
+                          >
+                            <img
+                              src={`/api/admin/media/${item.id}?size=thumbnail`}
+                              alt=""
+                              loading="lazy"
+                            />
+                            <span>{item.title}</span>
+                          </button>
+                        ))}
+                    </div>
+                    {!media.length && (
+                      <p className="muted">
+                        Envie uma imagem em Biblioteca & portfólio primeiro.
+                      </p>
+                    )}
+                  </details>
+                </section>
+                <section className="panel presentation-copy-settings">
+                  <h2>Textos do site</h2>
+                  <Text
+                    label="Rótulo do carrossel"
+                    value={cfg.carouselLabel}
+                    max={100}
+                    onChange={(carouselLabel) =>
+                      change({ ...cfg, carouselLabel })
+                    }
+                  />
+                  <Text
+                    label="Título do portfólio"
+                    value={cfg.portfolioTitle}
+                    max={180}
+                    onChange={(portfolioTitle) =>
+                      change({ ...cfg, portfolioTitle })
+                    }
+                  />
+                  <Text
+                    label="Subtítulo do portfólio (opcional)"
+                    value={cfg.portfolioSubtitle}
+                    max={300}
+                    onChange={(portfolioSubtitle) =>
+                      change({ ...cfg, portfolioSubtitle })
+                    }
+                  />
+                  <Text
+                    label="Título da encomenda"
+                    value={cfg.commissionTitle}
+                    max={180}
+                    onChange={(commissionTitle) =>
+                      change({ ...cfg, commissionTitle })
+                    }
+                  />
+                  <Text
+                    label="Introdução da encomenda"
+                    value={cfg.commissionIntro}
+                    multiline
+                    max={1000}
+                    onChange={(commissionIntro) =>
+                      change({ ...cfg, commissionIntro })
+                    }
+                  />
+                </section>
+                <section className="panel process-settings">
+                  <h2>Como funciona a encomenda</h2>
+                  <p className="muted">
+                    Personalize toda a explicação ao lado do formulário, desde o
+                    primeiro contato até a arte final.
+                  </p>
+                  <RichTextEditor
+                    value={cfg.processContent}
+                    disabled={busy}
+                    onChange={(processContent) =>
+                      change({ ...cfg, processContent })
+                    }
                   />
                 </section>
                 <section className="panel">

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  ArrowDown,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { api, body } from "./api";
 import FeaturedCarousel from "./FeaturedCarousel";
+import { RichTextContent } from "./RichText";
 import {
   defaultConfig,
   featuredArt,
@@ -243,12 +243,12 @@ export default function Portfolio({ preview }: { preview?: Config }) {
   const key = useRef(crypto.randomUUID());
   useEffect(() => {
     if (preview) {
-      setConfig(preview);
+      setConfig({ ...defaultConfig, ...preview });
       return;
     }
     api<{ config: Config; version: number; turnstileSiteKey: string }>("config")
       .then((result) => {
-        setConfig(result.config);
+        setConfig({ ...defaultConfig, ...result.config });
         setVersion(result.version);
         setSiteKey(result.turnstileSiteKey);
         document.title = `${result.config.brand} · Arte sob encomenda`;
@@ -341,11 +341,9 @@ export default function Portfolio({ preview }: { preview?: Config }) {
   return (
     <div className={`portfolio ${preview ? "portfolio-preview" : ""}`}>
       <header className="public-header">
-        <a className="brand" href="#inicio">
-          <span className="brand-mark">
-            <Sparkles size={20} />
-          </span>
-          {config.brand}
+        <a className="availability" href="#encomendar">
+          <span className={`dot ${config.accepting ? "" : "closed"}`} />
+          {config.accepting ? "Disponível para encomendas" : "Agenda fechada"}
         </a>
         <nav>
           <a href="#trabalhos">Trabalhos</a>
@@ -353,34 +351,25 @@ export default function Portfolio({ preview }: { preview?: Config }) {
           <a className="small-cta" href="#encomendar">
             Vamos criar <ArrowUpRight size={16} />
           </a>
-          <a className="studio-link" href="/admin">
-            Área do artista <ArrowUpRight size={15} />
-          </a>
         </nav>
       </header>
       <main>
         <section className="hero" id="inicio">
           <div className="hero-copy">
-            <span className="studio-emblem" aria-hidden="true">
-              <Sparkles size={32} strokeWidth={1.5} />
-            </span>
+            {config.mainImageId && (
+              <img
+                className="main-image"
+                src={`${mediaBase}/${config.mainImageId}`}
+                alt={
+                  config.gallery.find((art) => art.id === config.mainImageId)
+                    ?.alt || `Imagem principal de ${config.brand}`
+                }
+                fetchPriority="high"
+              />
+            )}
             <p className="studio-name">{config.brand}</p>
-            <div className="eyebrow">
-              <span className={`dot ${config.accepting ? "" : "closed"}`} />
-              {config.accepting
-                ? "Disponível para encomendas"
-                : "Portfólio & encomendas"}
-            </div>
             <h1>{config.headline}</h1>
             <p>{config.intro}</p>
-            <div className="hero-actions">
-              <a className="button primary" href="#encomendar">
-                Conte sua ideia <ArrowUpRight size={18} />
-              </a>
-              <a className="text-link" href="#trabalhos">
-                Explore o portfólio <ArrowDown size={17} />
-              </a>
-            </div>
           </div>
           <div
             className={`hero-art ${featured.length ? "has-featured-art" : ""}`}
@@ -390,6 +379,8 @@ export default function Portfolio({ preview }: { preview?: Config }) {
                 key={featured.map((art) => art.id).join(",")}
                 artworks={featured}
                 mediaBase={mediaBase}
+                label={config.carouselLabel}
+                paused={zoom !== null}
                 onOpen={(id) =>
                   setZoom(config.gallery.findIndex((art) => art.id === id))
                 }
@@ -415,10 +406,11 @@ export default function Portfolio({ preview }: { preview?: Config }) {
         <section className="section gallery-section" id="trabalhos">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">UM POUCO DO MEU UNIVERSO</span>
-              <h2>Traços que contam histórias.</h2>
+              <h2>{config.portfolioTitle}</h2>
+              {config.portfolioSubtitle && (
+                <p className="portfolio-subtitle">{config.portfolioSubtitle}</p>
+              )}
             </div>
-            <span className="section-index">01 — PORTFÓLIO</span>
           </div>
           {config.gallery.length ? (
             <div className="gallery">
@@ -444,7 +436,6 @@ export default function Portfolio({ preview }: { preview?: Config }) {
                       <h3>{art.title}</h3>
                       <p>{art.description}</p>
                     </div>
-                    <span>{String(index + 1).padStart(2, "0")}</span>
                   </div>
                   <span className="art-view">
                     Visualizar <ArrowUpRight size={15} />
@@ -462,16 +453,8 @@ export default function Portfolio({ preview }: { preview?: Config }) {
         </section>
         <section className="commission section" id="encomendar">
           <div className="commission-intro">
-            <span className="eyebrow">VAMOS TIRAR DO PAPEL?</span>
-            <h2>
-              Sua próxima arte
-              <br />
-              <em>começa aqui.</em>
-            </h2>
-            <p>
-              Algumas perguntas para entender sua ideia e preparar uma
-              estimativa. Sem compromisso, com espaço para conversar.
-            </p>
+            <h2>{config.commissionTitle}</h2>
+            {config.commissionIntro && <p>{config.commissionIntro}</p>}
             {config.email && (
               <a className="text-link" href={`mailto:${config.email}`}>
                 <Mail size={17} /> Prefere falar direto?
@@ -488,41 +471,7 @@ export default function Portfolio({ preview }: { preview?: Config }) {
               </a>
             )}
             <div className="process" id="processo">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">DO PRIMEIRO PAPO À ARTE FINAL</span>
-                  <h2>Você imagina. A gente cria.</h2>
-                </div>
-                <span className="section-index">02 — PROCESSO</span>
-              </div>
-              <div className="process-grid">
-                {[
-                  {
-                    n: "01",
-                    title: "Conte sua ideia",
-                    text: "Escolha o tipo de arte e os detalhes que fazem a diferença para você.",
-                  },
-                  {
-                    n: "02",
-                    title: "Vamos conversar",
-                    text: "Receba uma estimativa inicial. O artista confirma o orçamento e combina os próximos passos.",
-                  },
-                  {
-                    n: "03",
-                    title: "Veja ganhar vida",
-                    text: "Acompanhe a criação pelo contato combinado e aprove os detalhes da sua encomenda.",
-                  },
-                ].map((item) => (
-                  <div className="process-card" key={item.n}>
-                    <span>
-                      {item.n}
-                      <ArrowUpRight size={19} />
-                    </span>
-                    <h3>{item.title}</h3>
-                    <p>{item.text}</p>
-                  </div>
-                ))}
-              </div>
+              <RichTextContent value={config.processContent} />
             </div>
           </div>
           <div className="quote-card">
@@ -792,13 +741,7 @@ export default function Portfolio({ preview }: { preview?: Config }) {
         </section>
       </main>
       <footer className="public-footer">
-        <a className="brand" href="#inicio">
-          <span className="brand-mark">
-            <Sparkles size={17} />
-          </span>
-          {config.brand}
-        </a>
-        <span>Arte feita por gente, para gente.</span>
+        <span>Desenvolvido por Nexus Web Dev</span>
         <a href="/admin">
           Área do artista <ArrowUpRight size={14} />
         </a>

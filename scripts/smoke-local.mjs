@@ -193,9 +193,35 @@ await call(
 assert.equal((await call("admin/notifications")).attention, 0);
 assert.ok(current.paid_at);
 assert.equal((await call("admin/leads?search=fictício")).leads.length, 1);
+const invalidMain = await call("admin/config", "PUT", {
+  config: { ...config, mainImageId: crypto.randomUUID() },
+  revision: publication.revision,
+});
+await call("admin/publish", "POST", { revision: invalidMain.revision }, 400);
+const mainOnly = await call("admin/config", "PUT", {
+  config: {
+    ...start.draft,
+    mainImageId: uploaded.id,
+    portfolioSubtitle: "",
+    carouselLabel: "Destaques",
+    processContent: [
+      { type: "heading", spans: [{ text: "Meu processo", bold: true }] },
+    ],
+  },
+  revision: invalidMain.revision,
+});
+const mainPublication = await call("admin/publish", "POST", {
+  revision: mainOnly.revision,
+});
+const mainPublic = (await call("config")).config;
+assert.equal(mainPublic.mainImageId, uploaded.id);
+assert.equal(mainPublic.portfolioSubtitle, "");
+assert.equal(mainPublic.processContent[0].spans[0].bold, true);
+assert.equal((await fetch(`${origin}/api/media/${uploaded.id}`)).status, 200);
+await call(`admin/media/${uploaded.id}`, "DELETE", {}, 409);
 const savedAgain = await call("admin/config", "PUT", {
   config: start.draft,
-  revision: publication.revision,
+  revision: mainPublication.revision,
 });
 await call("admin/publish", "POST", { revision: savedAgain.revision });
 assert.equal((await call("leads", "POST", submission)).id, lead.id);
@@ -204,5 +230,5 @@ await call(`admin/leads/${lead.id}`, "DELETE", {});
 await call(`admin/leads/${lead.id}`, "GET", undefined, 404);
 await call(`admin/media/${uploaded.id}`, "DELETE", {});
 console.log(
-  "Local integration checks passed: publishing, image privacy, estimates, Turnstile submission, idempotency, attention, statuses, stale edits, search and deletion.",
+  "Local integration checks passed: publishing, image privacy, estimates, Turnstile submission, idempotency, attention, statuses, stale edits, search, main-image privacy, rich-text copy and deletion.",
 );
