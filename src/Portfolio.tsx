@@ -13,8 +13,10 @@ import {
   X,
 } from "lucide-react";
 import { api, body } from "./api";
+import FeaturedCarousel from "./FeaturedCarousel";
 import {
   defaultConfig,
+  featuredArt,
   money,
   quote,
   visible,
@@ -334,6 +336,7 @@ export default function Portfolio({ preview }: { preview?: Config }) {
     }
   }
   const mediaBase = preview ? "/api/admin/media" : "/api/media";
+  const featured = featuredArt(config);
   return (
     <div className={`portfolio ${preview ? "portfolio-preview" : ""}`}>
       <header className="public-header">
@@ -374,11 +377,17 @@ export default function Portfolio({ preview }: { preview?: Config }) {
               <span>01 /</span> Criado para ser só seu.
             </div>
           </div>
-          <div className="hero-art">
-            {config.gallery.length ? (
-              <img
-                src={`${mediaBase}/${config.gallery[0].id}`}
-                alt={config.gallery[0].alt}
+          <div
+            className={`hero-art ${featured.length ? "has-featured-art" : ""}`}
+          >
+            {featured.length ? (
+              <FeaturedCarousel
+                key={featured.map((art) => art.id).join(",")}
+                artworks={featured}
+                mediaBase={mediaBase}
+                onOpen={(id) =>
+                  setZoom(config.gallery.findIndex((art) => art.id === id))
+                }
               />
             ) : (
               <div className="studio-placeholder">

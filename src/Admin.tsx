@@ -575,7 +575,7 @@ export default function Admin() {
     ])
       .then(([s, result]) => {
         setSession(s);
-        setCfg(result.draft);
+        setCfg({ ...defaultConfig, ...result.draft });
         setLive(result.published);
         setRevision(result.revision);
         setVersion(result.version);
@@ -1266,9 +1266,101 @@ export default function Admin() {
                 <section className="panel">
                   <div className="panel-heading">
                     <div>
+                      <h2>Artes em destaque</h2>
+                      <p>
+                        Escolha até cinco artes abaixo e organize a ordem do
+                        carrossel de abertura.
+                      </p>
+                    </div>
+                    {cfg.featuredArtIds.length > 0 && (
+                      <button
+                        className="button subtle"
+                        onClick={() => change({ ...cfg, featuredArtIds: [] })}
+                      >
+                        Usar as primeiras 5
+                      </button>
+                    )}
+                  </div>
+                  <p className="muted">
+                    {cfg.featuredArtIds.length
+                      ? `${cfg.featuredArtIds.length} de 5 artes escolhidas. Salve e publique para atualizar o site.`
+                      : "Seleção automática: as primeiras cinco artes do portfólio, na ordem abaixo."}
+                  </p>
+                  <ol className="featured-editor">
+                    {cfg.featuredArtIds.map((id, index) => {
+                      const art = cfg.gallery.find((item) => item.id === id)!;
+                      return (
+                        <li key={id}>
+                          <img
+                            src={`/api/admin/media/${id}?size=thumbnail`}
+                            alt={art.alt}
+                          />
+                          <span>
+                            {index + 1}. {art.title}
+                          </span>
+                          <div className="featured-editor-actions">
+                            <button
+                              className="icon-button"
+                              disabled={!index}
+                              aria-label={`Mover destaque ${art.title} para cima`}
+                              onClick={() => {
+                                const featuredArtIds = [...cfg.featuredArtIds];
+                                [
+                                  featuredArtIds[index],
+                                  featuredArtIds[index - 1],
+                                ] = [
+                                  featuredArtIds[index - 1],
+                                  featuredArtIds[index],
+                                ];
+                                change({ ...cfg, featuredArtIds });
+                              }}
+                            >
+                              <ArrowUp size={16} />
+                            </button>
+                            <button
+                              className="icon-button"
+                              disabled={index === cfg.featuredArtIds.length - 1}
+                              aria-label={`Mover destaque ${art.title} para baixo`}
+                              onClick={() => {
+                                const featuredArtIds = [...cfg.featuredArtIds];
+                                [
+                                  featuredArtIds[index],
+                                  featuredArtIds[index + 1],
+                                ] = [
+                                  featuredArtIds[index + 1],
+                                  featuredArtIds[index],
+                                ];
+                                change({ ...cfg, featuredArtIds });
+                              }}
+                            >
+                              <ArrowDown size={16} />
+                            </button>
+                            <button
+                              className="icon-button danger"
+                              aria-label={`Remover destaque ${art.title}`}
+                              onClick={() =>
+                                change({
+                                  ...cfg,
+                                  featuredArtIds: cfg.featuredArtIds.filter(
+                                    (item) => item !== id,
+                                  ),
+                                })
+                              }
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+                <section className="panel">
+                  <div className="panel-heading">
+                    <div>
                       <h2>Portfólio público</h2>
                       <p>
-                        A primeira imagem também aparece na abertura do site.
+                        Marque as artes que deseja destacar na abertura do site.
                       </p>
                     </div>
                   </div>
@@ -1319,6 +1411,28 @@ export default function Admin() {
                             })
                           }
                         />
+                        <label className="featured-toggle">
+                          <input
+                            type="checkbox"
+                            aria-label={`Destacar ${g.title} na abertura`}
+                            checked={cfg.featuredArtIds.includes(g.id)}
+                            disabled={
+                              !cfg.featuredArtIds.includes(g.id) &&
+                              cfg.featuredArtIds.length >= 5
+                            }
+                            onChange={(event) =>
+                              change({
+                                ...cfg,
+                                featuredArtIds: event.target.checked
+                                  ? [...cfg.featuredArtIds, g.id]
+                                  : cfg.featuredArtIds.filter(
+                                      (id) => id !== g.id,
+                                    ),
+                              })
+                            }
+                          />
+                          Destacar na abertura
+                        </label>
                       </div>
                       <div className="vertical-actions">
                         <button
@@ -1357,6 +1471,9 @@ export default function Admin() {
                           onClick={() =>
                             change({
                               ...cfg,
+                              featuredArtIds: cfg.featuredArtIds.filter(
+                                (id) => id !== g.id,
+                              ),
                               gallery: cfg.gallery.filter(
                                 (item) => item.id !== g.id,
                               ),

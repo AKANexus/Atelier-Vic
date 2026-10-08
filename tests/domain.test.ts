@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   configSchema,
   defaultConfig,
+  featuredArt,
   quote,
   type Service,
 } from "../src/domain";
@@ -135,5 +136,41 @@ describe("commission pricing and questionnaire validation", () => {
     const s = structuredClone(service);
     s.questions = [{ ...s.questions[0], type: "date", options: [] }];
     expect(() => quote(s, { [ids[1]]: "2026-02-31" })).toThrow("Data inválida");
+  });
+});
+
+describe("featured portfolio artwork", () => {
+  const gallery = ids.slice(0, 6).map((id, index) => ({
+    id,
+    title: `Arte ${index + 1}`,
+    alt: `Descrição ${index + 1}`,
+    description: "",
+  }));
+  it("keeps existing configurations compatible and defaults to the first five", () => {
+    const { featuredArtIds: _, ...legacy } = { ...defaultConfig, gallery };
+    const config = configSchema.parse(legacy);
+    expect(config.featuredArtIds).toEqual([]);
+    expect(featuredArt(config).map((art) => art.id)).toEqual(ids.slice(0, 5));
+  });
+  it("preserves the artist's selection order independently of gallery order", () => {
+    const config = configSchema.parse({
+      ...defaultConfig,
+      gallery,
+      featuredArtIds: [ids[4], ids[1]],
+    });
+    expect(featuredArt(config).map((art) => art.id)).toEqual([ids[4], ids[1]]);
+  });
+  it("rejects more than five, duplicates and artwork outside the portfolio", () => {
+    for (const featuredArtIds of [ids.slice(0, 6), [ids[1], ids[1]], [ids[9]]])
+      expect(
+        configSchema.safeParse({ ...defaultConfig, gallery, featuredArtIds })
+          .success,
+      ).toBe(false);
+  });
+  it("handles an empty portfolio and a single selected artwork", () => {
+    expect(featuredArt(defaultConfig)).toEqual([]);
+    expect(
+      featuredArt({ ...defaultConfig, gallery, featuredArtIds: [ids[2]] }),
+    ).toEqual([gallery[2]]);
   });
 });

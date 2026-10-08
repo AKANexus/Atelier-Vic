@@ -29,6 +29,7 @@ export const configSchema = z
     whatsapp: z.string().regex(/^\d{10,15}$|^$/),
     accepting: z.boolean(),
     privacy: z.string().trim().min(1).max(3000),
+    featuredArtIds: z.array(id).max(5).default([]),
     gallery: z
       .array(
         z.object({
@@ -52,6 +53,18 @@ export const configSchema = z
       .max(20),
   })
   .superRefine((config, ctx) => {
+    if (
+      new Set(config.featuredArtIds).size !== config.featuredArtIds.length ||
+      config.featuredArtIds.some(
+        (artId) => !config.gallery.some((art) => art.id === artId),
+      )
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["featuredArtIds"],
+        message:
+          "Escolha até cinco artes diferentes do portfólio para destacar.",
+      });
     const all = new Set<string>();
     for (const service of config.services) {
       if (all.has(service.id))
@@ -144,8 +157,19 @@ export const defaultConfig: Config = {
   privacy:
     "Usaremos seu nome, e-mail e as informações do pedido para preparar um orçamento e conversar sobre a encomenda. Você pode solicitar a exclusão desses dados pelo contato do estúdio.",
   gallery: [],
+  featuredArtIds: [],
   services: [],
 };
+
+export function featuredArt(config: Config): Config["gallery"] {
+  const selected = config.featuredArtIds || [];
+  return selected.length
+    ? selected
+        .map((artId) => config.gallery.find((art) => art.id === artId))
+        .filter((art): art is Config["gallery"][number] => Boolean(art))
+        .slice(0, 5)
+    : config.gallery.slice(0, 5);
+}
 
 export function visible(q: Question, answers: Answers): boolean {
   if (!q.condition) return true;

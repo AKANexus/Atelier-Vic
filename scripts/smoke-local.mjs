@@ -88,6 +88,24 @@ config.services = [
     ],
   },
 ];
+config.gallery = [
+  {
+    id: uploaded.id,
+    title: "Teste local",
+    alt: "Arte de teste local",
+    description: "",
+  },
+];
+config.featuredArtIds = [uploaded.id];
+await call(
+  "admin/config",
+  "PUT",
+  {
+    config: { ...config, featuredArtIds: [crypto.randomUUID()] },
+    revision: start.revision,
+  },
+  400,
+);
 const saved = await call("admin/config", "PUT", {
   config,
   revision: start.revision,
@@ -96,6 +114,10 @@ await call("admin/config", "PUT", { config, revision: start.revision }, 409);
 const publication = await call("admin/publish", "POST", {
   revision: saved.revision,
 });
+assert.deepEqual((await call("config")).config.featuredArtIds, [uploaded.id]);
+assert.deepEqual((await call("admin/config")).draft.featuredArtIds, [
+  uploaded.id,
+]);
 await call(`admin/media/${uploaded.id}`, "DELETE", {}, 409);
 const mediaResponse = await fetch(`${origin}/api/media/${uploaded.id}`);
 assert.equal(mediaResponse.status, 200);
