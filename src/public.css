@@ -1,0 +1,550 @@
+/* Public themes are scoped so artist colors never change the admin workspace. */
+.portfolio {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--ink);
+  --gutter: 32px;
+  --line: color-mix(in srgb, var(--ink) 22%, var(--background));
+}
+.portfolio :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+}
+.portfolio a {
+  color: var(--accent);
+}
+.portfolio .public-header {
+  position: relative;
+  max-width: 1264px;
+  margin: auto;
+  padding: 18px var(--gutter);
+  background: transparent;
+  backdrop-filter: none;
+  border: 0;
+  flex-wrap: wrap;
+}
+.portfolio .public-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: var(--gutter);
+  right: var(--gutter);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 65%, transparent),
+    transparent
+  );
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.artist-wordmark {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.portfolio .artist-wordmark a {
+  color: var(--accent);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.portfolio .public-header nav {
+  font-family: inherit;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.portfolio .public-header nav a {
+  color: var(--ink);
+}
+.portfolio .public-header nav a[aria-current="page"],
+.portfolio .public-header nav a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 7px;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.artist-banner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.artist-banner img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.artist-introduction {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 42px var(--gutter) 24px;
+  text-align: center;
+}
+.artist-introduction h1 {
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 600;
+  margin-bottom: 12px;
+  line-height: 1.15;
+}
+.artist-introduction p {
+  font-size: 15px;
+  margin-bottom: 12px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.artist-introduction .artist-specialty {
+  font-size: 17px;
+  color: var(--accent);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.portfolio .section {
+  max-width: 1264px;
+  padding: 32px var(--gutter);
+}
+.portfolio .section-heading {
+  margin-bottom: 26px;
+}
+.portfolio .section-heading h2 {
+  font-size: 26px;
+  margin-top: 0;
+}
+.portfolio .portfolio-subtitle {
+  font-size: 14px;
+}
+.portfolio .gallery {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px 24px;
+  align-items: start;
+}
+.portfolio .art-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+  transition: none;
+}
+.portfolio .art-card:hover {
+  border: 0;
+  box-shadow: none;
+}
+.portfolio .art-image {
+  aspect-ratio: auto;
+  background: transparent;
+  overflow: visible;
+}
+.portfolio .art-image img {
+  height: auto;
+  width: 100%;
+  object-fit: contain;
+  transition: none;
+}
+.portfolio .art-card:hover img {
+  transform: none;
+}
+.portfolio .gallery .art-caption {
+  padding: 12px 0 0;
+}
+.portfolio .gallery .art-caption h3 {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0;
+  margin: 0;
+}
+.portfolio .art-card:hover .art-caption h3 {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--accent);
+}
+.artist-about,
+.artist-contact {
+  border-top: 1px solid color-mix(in srgb, var(--accent) 35%, var(--background));
+}
+.artist-about h2,
+.artist-contact h2 {
+  font-size: 26px;
+  font-weight: 500;
+}
+.portfolio .section-heading h2,
+.portfolio .artist-about > h2,
+.portfolio .artist-contact > h2 {
+  border-left: 2px solid var(--accent);
+  padding-left: 14px;
+}
+.portfolio .contact-actions > a:hover {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.artist-biography {
+  max-width: 760px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+.portfolio .contact-links {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.portfolio .contact-links a {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.portfolio .contact-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 24px;
+}
+.portfolio .contact-actions > a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  font-size: 13px;
+  gap: 8px;
+}
+.portfolio .contact-actions > a:first-child {
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px 20px;
+  margin-bottom: 8px;
+  background: var(--background);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.portfolio .contact-actions > a:first-child:hover {
+  background: var(--accent);
+  color: var(--button-ink);
+  text-shadow: none;
+  text-decoration: none;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.portfolio .commission-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000000b3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 32px 16px;
+}
+.portfolio .commission-modal {
+  width: 100%;
+  max-width: 660px;
+  margin: auto;
+  padding: 24px;
+  background: var(--background);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--background));
+  box-shadow: 0 0 36px color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 12px;
+  min-width: 0;
+}
+.portfolio .commission-modal-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+.portfolio .commission-modal-header h2 {
+  font-size: 24px;
+  margin: 0;
+}
+.portfolio .commission-modal-header button {
+  flex-shrink: 0;
+}
+.portfolio .commission-modal .quote-card {
+  padding: 16px 0 0;
+  border: 0;
+}
+.portfolio .public-footer {
+  max-width: 1264px;
+  padding: 22px var(--gutter);
+}
+.portfolio .commission {
+  max-width: 1200px;
+  width: calc(100% - var(--gutter) * 2);
+  padding: 40px 0;
+  margin: 0 auto 40px;
+  background: var(--background);
+  border: 0;
+  border-radius: 0;
+  gap: 48px;
+}
+.portfolio .commission-intro h1 {
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.2;
+  margin: 8px 0 18px;
+}
+.portfolio .commission-intro p {
+  font-size: 14px;
+}
+.portfolio .quote-card {
+  background: var(--background);
+  box-shadow: none;
+  border: 1px solid var(--line);
+  padding: 28px;
+}
+.portfolio .availability {
+  color: var(--accent);
+  font: 12px inherit;
+}
+.portfolio .dot {
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.portfolio .dot.closed {
+  background: var(--ink);
+  box-shadow: none;
+}
+.portfolio .button.primary,
+.portfolio .button.primary:hover {
+  background: var(--accent);
+  color: var(--button-ink);
+  border-color: var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.portfolio .button.primary:hover {
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.portfolio .button.ghost,
+.portfolio .button.subtle {
+  background: var(--background);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.portfolio .button.ghost:hover,
+.portfolio .button.subtle:hover {
+  background: var(--background);
+  box-shadow: none;
+  text-decoration: underline !important;
+}
+.portfolio input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.portfolio select,
+.portfolio textarea {
+  background: var(--background);
+  color: var(--ink);
+  border-color: var(--ink);
+  box-shadow: none;
+}
+.portfolio input:focus-visible,
+.portfolio select:focus-visible,
+.portfolio textarea:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.portfolio input::placeholder,
+.portfolio textarea::placeholder {
+  color: var(--ink);
+  opacity: 1;
+}
+.portfolio .service-option,
+.portfolio .answer-option {
+  background: var(--background);
+  border-color: var(--ink);
+}
+.portfolio .service-option.selected,
+.portfolio .answer-option.selected {
+  background: var(--background);
+  border-color: var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 12%, transparent);
+  outline: 1px solid var(--accent);
+}
+.portfolio .steps b {
+  border-color: var(--ink);
+}
+.portfolio .steps .active {
+  color: var(--accent);
+}
+.portfolio .steps .active b {
+  background: var(--accent);
+  color: var(--button-ink);
+  border-color: var(--accent);
+}
+.portfolio .answer-samples img {
+  background: var(--background);
+  border-color: var(--line);
+}
+.portfolio .notice {
+  background: var(--background);
+  border-color: var(--ink);
+}
+.portfolio .error,
+.portfolio .notice.error {
+  background: #321419;
+  color: #ffd9d9;
+  border-color: #ffd9d9;
+  padding: 12px;
+  border-radius: 4px;
+}
+.portfolio .success {
+  background: #102a21;
+  color: #d5f5e4;
+  padding: 24px;
+  border-radius: 4px;
+}
+.portfolio .success p,
+.portfolio .success h3 {
+  color: #d5f5e4;
+}
+.portfolio .lightbox {
+  background: var(--background);
+  backdrop-filter: none;
+}
+.portfolio .lightbox button {
+  background: var(--background);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.portfolio .lightbox figcaption {
+  color: var(--ink);
+}
+.portfolio .empty-portfolio {
+  background: transparent;
+  border-color: var(--line);
+}
+.public-loading {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 32px;
+}
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 80;
+  padding: 12px;
+  background: var(--background);
+}
+.skip-link:focus {
+  top: 12px;
+}
+.theme-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 24px;
+}
+.theme-presets button {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.theme-presets button[aria-pressed="true"] {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+.theme-swatches {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.theme-swatches span {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #89747c;
+}
+.theme-colors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.theme-color {
+  min-width: 0;
+}
+.theme-color input[type="color"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px;
+  cursor: pointer;
+}
+.theme-color small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.theme-color .error {
+  font-size: 12px;
+}
+.preview-pages {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.preview-toolbar {
+  flex-wrap: wrap;
+}
+.preview-pages button[aria-pressed="true"] {
+  border-color: var(--rose);
+  color: var(--ink);
+}
+.main-image-settings > .upload-button {
+  margin-bottom: 20px;
+}
+@media (max-width: 1024px) {
+  .portfolio .gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .portfolio .commission {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+@media (max-width: 639px) {
+  .portfolio .commission-backdrop {
+    padding: 12px;
+  }
+  .portfolio .commission-modal {
+    padding: 20px;
+  }
+  .portfolio .commission-modal .quote-card {
+    padding: 16px 0 0;
+  }
+  .portfolio {
+    --gutter: 20px;
+  }
+  .portfolio .public-header {
+    display: block;
+    padding: 14px var(--gutter);
+  }
+  .portfolio .public-header nav {
+    gap: 8px 18px;
+    margin-top: 8px;
+  }
+  .portfolio .gallery {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .artist-introduction {
+    padding-top: 28px;
+  }
+  .portfolio .quote-card {
+    padding: 20px;
+  }
+  .portfolio .lightbox {
+    padding: 70px 12px;
+    gap: 6px;
+  }
+  .theme-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .theme-colors {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

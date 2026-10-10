@@ -29,7 +29,29 @@ async function call(path, method = "GET", value, expected = 200, headers = {}) {
   );
   return data;
 }
+for (const path of ["/", "/encomendas", "/encomendas/"]) {
+  const response = await fetch(`${origin}${path}`);
+  assert.equal(response.status, 200);
+  assert.ok((await response.text()).includes('<div id="root"></div>'));
+}
 const start = await call("admin/config");
+await call(
+  "admin/config",
+  "PUT",
+  {
+    config: {
+      ...start.draft,
+      publicTheme: {
+        preset: "custom",
+        background: "#111111",
+        text: "#111111",
+        accent: "#FFFFFF",
+      },
+    },
+    revision: start.revision,
+  },
+  400,
+);
 assert.equal((await call("admin/session")).local, true);
 await call(
   "admin/config",
@@ -202,6 +224,14 @@ const mainOnly = await call("admin/config", "PUT", {
   config: {
     ...start.draft,
     mainImageId: uploaded.id,
+    mainImageAlt: "Banner de teste",
+    artistBio: "Biografia de teste",
+    publicTheme: {
+      preset: "neon-ciano",
+      background: "#09171B",
+      text: "#E7F7FA",
+      accent: "#27E5F5",
+    },
     portfolioSubtitle: "",
     carouselLabel: "Destaques",
     processContent: [
@@ -215,6 +245,9 @@ const mainPublication = await call("admin/publish", "POST", {
 });
 const mainPublic = (await call("config")).config;
 assert.equal(mainPublic.mainImageId, uploaded.id);
+assert.equal(mainPublic.mainImageAlt, "Banner de teste");
+assert.equal(mainPublic.artistBio, "Biografia de teste");
+assert.equal(mainPublic.publicTheme.preset, "neon-ciano");
 assert.equal(mainPublic.portfolioSubtitle, "");
 assert.equal(mainPublic.processContent[0].spans[0].bold, true);
 assert.equal((await fetch(`${origin}/api/media/${uploaded.id}`)).status, 200);

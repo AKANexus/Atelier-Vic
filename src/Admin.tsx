@@ -38,7 +38,10 @@ import {
 } from "./domain";
 import { compressImage } from "./images";
 import Portfolio from "./Portfolio";
-import { RichTextEditor } from "./RichText";
+import { RichTextEditor, normalizeRichText } from "./RichText";
+import ThemeEditor from "./ThemeEditor";
+import { publicThemeSchema } from "./theme";
+import type { PublicPage } from "./publicRoutes";
 
 type Tab = "leads" | "forms" | "media" | "settings";
 type Session = {
@@ -536,7 +539,6 @@ export default function Admin() {
   const [session, setSession] = useState<Session | null>(null);
   const [cfg, setCfg] = useState<Config>(defaultConfig);
   const [revision, setRevision] = useState(0);
-  const [version, setVersion] = useState(0);
   const [live, setLive] = useState<Config | null>(null);
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<Tab>("leads");
@@ -546,6 +548,8 @@ export default function Admin() {
     emailFailures: 0,
   });
   const [preview, setPreview] = useState(false);
+  const [previewPage, setPreviewPage] = useState<PublicPage>("portfolio");
+  const themeValid = publicThemeSchema.safeParse(cfg.publicTheme).success;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [more, setMore] = useState(false);
   const [page, setPage] = useState(0);
@@ -589,7 +593,6 @@ export default function Admin() {
         setCfg({ ...defaultConfig, ...result.draft });
         setLive(result.published);
         setRevision(result.revision);
-        setVersion(result.version);
         return Promise.all([refreshMedia(), notifications()]);
       })
       .catch((error) => setError(error.message))
@@ -644,6 +647,7 @@ export default function Admin() {
     }
   }
   async function saveDraft() {
+    publicThemeSchema.parse(cfg.publicTheme);
     const result = await api<{ revision: number }>("admin/config", {
       method: "PUT",
       body: body({ config: cfg, revision }),
@@ -653,15 +657,29 @@ export default function Admin() {
     return result.revision;
   }
   async function publish() {
+    publicThemeSchema.parse(cfg.publicTheme);
     const saved = dirty ? await saveDraft() : revision;
     const result = await api<{ revision: number; version: number }>(
       "admin/publish",
       { method: "POST", body: body({ revision: saved }) },
     );
     setRevision(result.revision);
-    setVersion(result.version);
     setLive(structuredClone(cfg));
     return "Site publicado. Imagens recém-enviadas podem levar até 60 segundos para aparecer.";
+  }
+  async function toggleAgenda() {
+    if (!live) return;
+    const accepting = !live.accepting;
+    const result = await api<{ revision: number }>("admin/config", {
+      method: "PATCH",
+      body: body({ accepting, revision }),
+    });
+    setRevision(result.revision);
+    setLive({ ...live, accepting });
+    setCfg((current) => ({ ...current, accepting }));
+    return accepting
+      ? "Agenda aberta para novas encomendas."
+      : "Agenda fechada para novas encomendas.";
   }
   async function openLead(id: string) {
     const result = await api<{ lead: Lead; history: History[] }>(
@@ -685,15 +703,21 @@ export default function Admin() {
     await Promise.all([openLead(detail.id), refreshLeads(), notifications()]);
     return "Pedido atualizado.";
   }
-  async function upload(file: File) {
+  async function upload(file: File, banner = false) {
     const compressed = await compressImage(file);
     const form = new FormData();
     form.set("image", compressed.image, "sample.webp");
     form.set("thumbnail", compressed.thumbnail, "thumbnail.webp");
     form.set("title", file.name.replace(/\.[^.]+$/, "").slice(0, 150));
-    await api("admin/media", { method: "POST", body: form });
+    const result = await api<{ id: string }>("admin/media", {
+      method: "POST",
+      body: form,
+    });
+    if (banner) change({ ...cfg, mainImageId: result.id });
     await refreshMedia();
-    return "Imagem enviada. Adicione ao portfólio ou às perguntas antes de publicar.";
+    return banner
+      ? "Banner enviado e selecionado. Confira a prévia antes de publicar."
+      : "Imagem enviada. Adicione ao portfólio ou às perguntas antes de publicar.";
   }
   async function exportLeads() {
     const all: Lead[] = [];
@@ -760,13 +784,7 @@ export default function Admin() {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <a href="/admin" className="brand">
-          <span className="brand-mark">
-            <Sparkles size={19} />
-          </span>
-          <span className="admin-brand-text">
-            {cfg.brand}
-            <span className="admin-brand-caption">PAINEL DO ARTISTA</span>
-          </span>
+          Painel de administração
         </a>
         <a
           className="sidebar-public-link"
@@ -799,7 +817,6 @@ export default function Admin() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <small>{session.email}</small>
           <a href="/cdn-cgi/access/logout">
             <LogOut size={15} /> Sair do painel
           </a>
@@ -807,9 +824,7 @@ export default function Admin() {
       </aside>
       <div className="admin-main">
         <header className="admin-topbar">
-          <span>Painel do artista</span>
           <div>
-            <span className="free-label">PLANO GRATUITO</span>
             <button
               className="notification-button"
               aria-label={`${notification.attention} pedidos precisam de atenção`}
@@ -822,10 +837,6 @@ export default function Admin() {
               <Bell size={19} />
               {notification.attention > 0 && <b>{notification.attention}</b>}
             </button>
-            <span className="account-email">{session.email}</span>
-            <div className="avatar" aria-hidden="true">
-              {session.email.slice(0, 1).toUpperCase()}
-            </div>
           </div>
         </header>
         <main className="admin-content">
@@ -837,9 +848,6 @@ export default function Admin() {
             </div>
             {tab !== "leads" && (
               <div className="toolbar">
-                <span className={`draft-indicator ${dirty ? "dirty" : ""}`}>
-                  {dirty ? "Alterações não salvas" : `Versão ${version}`}
-                </span>
                 <button
                   className="button ghost small"
                   disabled={busy}
@@ -848,20 +856,8 @@ export default function Admin() {
                   <Eye size={16} /> Prévia
                 </button>
                 <button
-                  className="button ghost small"
-                  disabled={busy || !dirty}
-                  onClick={() =>
-                    run(async () => {
-                      await saveDraft();
-                      return "Rascunho salvo. O site público continua na versão publicada.";
-                    })
-                  }
-                >
-                  <Save size={16} /> Salvar
-                </button>
-                <button
                   className="button primary small"
-                  disabled={busy}
+                  disabled={busy || !themeValid}
                   onClick={() => run(publish)}
                 >
                   <Upload size={16} /> Publicar
@@ -932,20 +928,23 @@ export default function Admin() {
                     <strong className="stat-text">
                       {live?.accepting ? "Aberta" : "Fechada"}
                     </strong>
-                    <small>Altere a agenda em configurações</small>
-                  </div>
-                  <div className="stat-card">
-                    <span>
-                      <Mail size={17} /> Notificações
-                    </span>
-                    <strong className="stat-text">
-                      {session.emailEnabled ? "E-mail + painel" : "No painel"}
-                    </strong>
                     <small>
-                      {session.emailEnabled
-                        ? "Seu domínio está configurado"
-                        : "E-mail disponível após configurar o domínio"}
+                      {live
+                        ? "Controle a disponibilidade no site público."
+                        : "Publique o site antes de abrir a agenda."}
                     </small>
+                    <button
+                      className="button ghost small agenda-toggle"
+                      type="button"
+                      disabled={busy || !live}
+                      onClick={() => run(toggleAgenda)}
+                    >
+                      {busy
+                        ? "Aguarde…"
+                        : live?.accepting
+                          ? "Fechar agenda"
+                          : "Abrir agenda"}
+                    </button>
                   </div>
                 </div>
                 <section className="panel leads-panel">
@@ -1106,7 +1105,7 @@ export default function Admin() {
                 <div className="notice">
                   <CircleHelp size={17} /> A estimativa soma o preço base e os
                   adicionais escolhidos. Perguntas condicionais usam respostas
-                  anteriores. Salve o rascunho e publique quando estiver pronto.
+                  anteriores. Confira a prévia e publique quando estiver pronto.
                 </div>
                 {cfg.services.map((s) => (
                   <ServiceEditor
@@ -1171,98 +1170,6 @@ export default function Admin() {
             )}
             {tab === "media" && (
               <>
-                <section className="panel featured-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Artes em destaque</h2>
-                      <p>
-                        Escolha até cinco artes abaixo e organize a ordem do
-                        carrossel de abertura.
-                      </p>
-                    </div>
-                    {cfg.featuredArtIds.length > 0 && (
-                      <button
-                        className="button subtle"
-                        onClick={() => change({ ...cfg, featuredArtIds: [] })}
-                      >
-                        Usar as primeiras 5
-                      </button>
-                    )}
-                  </div>
-                  <p className="muted">
-                    {cfg.featuredArtIds.length
-                      ? `${cfg.featuredArtIds.length} de 5 artes escolhidas. Salve e publique para atualizar o site.`
-                      : "Seleção automática: as primeiras cinco artes do portfólio, na ordem abaixo."}
-                  </p>
-                  <ol className="featured-editor">
-                    {cfg.featuredArtIds.map((id, index) => {
-                      const art = cfg.gallery.find((item) => item.id === id)!;
-                      return (
-                        <li key={id}>
-                          <img
-                            src={`/api/admin/media/${id}?size=thumbnail`}
-                            alt={art.alt}
-                          />
-                          <span>
-                            {index + 1}. {art.title}
-                          </span>
-                          <div className="featured-editor-actions">
-                            <button
-                              className="icon-button"
-                              disabled={!index}
-                              aria-label={`Mover destaque ${art.title} para cima`}
-                              onClick={() => {
-                                const featuredArtIds = [...cfg.featuredArtIds];
-                                [
-                                  featuredArtIds[index],
-                                  featuredArtIds[index - 1],
-                                ] = [
-                                  featuredArtIds[index - 1],
-                                  featuredArtIds[index],
-                                ];
-                                change({ ...cfg, featuredArtIds });
-                              }}
-                            >
-                              <ArrowUp size={16} />
-                            </button>
-                            <button
-                              className="icon-button"
-                              disabled={index === cfg.featuredArtIds.length - 1}
-                              aria-label={`Mover destaque ${art.title} para baixo`}
-                              onClick={() => {
-                                const featuredArtIds = [...cfg.featuredArtIds];
-                                [
-                                  featuredArtIds[index],
-                                  featuredArtIds[index + 1],
-                                ] = [
-                                  featuredArtIds[index + 1],
-                                  featuredArtIds[index],
-                                ];
-                                change({ ...cfg, featuredArtIds });
-                              }}
-                            >
-                              <ArrowDown size={16} />
-                            </button>
-                            <button
-                              className="icon-button danger"
-                              aria-label={`Remover destaque ${art.title}`}
-                              onClick={() =>
-                                change({
-                                  ...cfg,
-                                  featuredArtIds: cfg.featuredArtIds.filter(
-                                    (item) => item !== id,
-                                  ),
-                                })
-                              }
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
                 <section className="panel">
                   <div className="panel-heading">
                     <div>
@@ -1422,28 +1329,6 @@ export default function Admin() {
                             })
                           }
                         />
-                        <label className="featured-toggle">
-                          <input
-                            type="checkbox"
-                            aria-label={`Destacar ${g.title} na abertura`}
-                            checked={cfg.featuredArtIds.includes(g.id)}
-                            disabled={
-                              !cfg.featuredArtIds.includes(g.id) &&
-                              cfg.featuredArtIds.length >= 5
-                            }
-                            onChange={(event) =>
-                              change({
-                                ...cfg,
-                                featuredArtIds: event.target.checked
-                                  ? [...cfg.featuredArtIds, g.id]
-                                  : cfg.featuredArtIds.filter(
-                                      (id) => id !== g.id,
-                                    ),
-                              })
-                            }
-                          />
-                          Destacar na abertura
-                        </label>
                       </div>
                       <div className="vertical-actions">
                         <button
@@ -1509,31 +1394,88 @@ export default function Admin() {
                 <section className="panel">
                   <h2>Apresentação</h2>
                   <Text
-                    label="Nome do estúdio"
+                    label="Nome do artista"
                     value={cfg.brand}
                     max={100}
                     onChange={(brand) => change({ ...cfg, brand })}
                   />
                   <Text
-                    label="Título principal"
+                    label="Especialidade / título"
                     value={cfg.headline}
                     max={180}
                     onChange={(headline) => change({ ...cfg, headline })}
                   />
                   <Text
-                    label="Apresentação do artista"
+                    label="Apresentação curta"
                     multiline
                     value={cfg.intro}
                     max={1000}
                     onChange={(intro) => change({ ...cfg, intro })}
                   />
                 </section>
-                <section className="panel main-image-settings">
-                  <h2>Imagem Principal</h2>
+                <section className="panel presentation-copy-settings">
+                  <h2>Textos do site</h2>
+                  <Text
+                    label="Título do portfólio"
+                    value={cfg.portfolioTitle}
+                    max={180}
+                    onChange={(portfolioTitle) =>
+                      change({ ...cfg, portfolioTitle })
+                    }
+                  />
+                  <Text
+                    label="Subtítulo do portfólio (opcional)"
+                    value={cfg.portfolioSubtitle}
+                    max={300}
+                    onChange={(portfolioSubtitle) =>
+                      change({ ...cfg, portfolioSubtitle })
+                    }
+                  />
+                </section>
+                <section className="panel artist-about-settings">
+                  <h2>Sobre o artista</h2>
+                  <RichTextEditor
+                    label="Sobre o artista"
+                    value={normalizeRichText(cfg.artistBio)}
+                    disabled={busy}
+                    onChange={(artistBio) => change({ ...cfg, artistBio })}
+                  />
                   <p className="muted">
-                    Escolha um logo ou uma arte da biblioteca para aparecer no
-                    centro da apresentação. Não é necessário adicionar a imagem
-                    ao portfólio.
+                    Opcional. Sem biografia, o site usa sua apresentação curta.
+                  </p>
+                </section>
+                <ThemeEditor
+                  value={cfg.publicTheme}
+                  onChange={(publicTheme) => change({ ...cfg, publicTheme })}
+                />
+                <section className="panel main-image-settings">
+                  <h2>Banner do artista</h2>
+                  <label className="button primary small upload-button">
+                    <ImagePlus size={16} /> Enviar banner
+                    <input
+                      type="file"
+                      aria-label="Enviar banner do artista"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (file) run(() => upload(file, true));
+                      }}
+                    />
+                  </label>
+                  <Text
+                    label="Descrição acessível do banner"
+                    value={cfg.mainImageAlt}
+                    max={200}
+                    onChange={(mainImageAlt) =>
+                      change({ ...cfg, mainImageAlt })
+                    }
+                  />
+                  <p className="muted">
+                    Envie sua ilustração ou escolha uma imagem da biblioteca.
+                    Recomendamos uma composição de 3:1. A imagem aparece
+                    inteira, inclusive no celular, e não precisa fazer parte do
+                    portfólio.
                   </p>
                   {cfg.mainImageId ? (
                     <div className="main-image-preview">
@@ -1549,13 +1491,11 @@ export default function Admin() {
                         className="button ghost"
                         onClick={() => change({ ...cfg, mainImageId: null })}
                       >
-                        Remover imagem principal
+                        Remover banner
                       </button>
                     </div>
                   ) : (
-                    <p className="muted">
-                      Nenhuma imagem principal selecionada.
-                    </p>
+                    <p className="muted">Nenhum banner selecionado.</p>
                   )}
                   <details className="sample-picker">
                     <summary>
@@ -1568,7 +1508,7 @@ export default function Admin() {
                           <button
                             type="button"
                             key={item.id}
-                            aria-label={`Usar ${item.title} como imagem principal`}
+                            aria-label={`Usar ${item.title} como banner`}
                             aria-pressed={cfg.mainImageId === item.id}
                             onClick={() =>
                               change({ ...cfg, mainImageId: item.id })
@@ -1590,55 +1530,11 @@ export default function Admin() {
                     )}
                   </details>
                 </section>
-                <section className="panel presentation-copy-settings">
-                  <h2>Textos do site</h2>
-                  <Text
-                    label="Rótulo do carrossel"
-                    value={cfg.carouselLabel}
-                    max={100}
-                    onChange={(carouselLabel) =>
-                      change({ ...cfg, carouselLabel })
-                    }
-                  />
-                  <Text
-                    label="Título do portfólio"
-                    value={cfg.portfolioTitle}
-                    max={180}
-                    onChange={(portfolioTitle) =>
-                      change({ ...cfg, portfolioTitle })
-                    }
-                  />
-                  <Text
-                    label="Subtítulo do portfólio (opcional)"
-                    value={cfg.portfolioSubtitle}
-                    max={300}
-                    onChange={(portfolioSubtitle) =>
-                      change({ ...cfg, portfolioSubtitle })
-                    }
-                  />
-                  <Text
-                    label="Título da encomenda"
-                    value={cfg.commissionTitle}
-                    max={180}
-                    onChange={(commissionTitle) =>
-                      change({ ...cfg, commissionTitle })
-                    }
-                  />
-                  <Text
-                    label="Introdução da encomenda"
-                    value={cfg.commissionIntro}
-                    multiline
-                    max={1000}
-                    onChange={(commissionIntro) =>
-                      change({ ...cfg, commissionIntro })
-                    }
-                  />
-                </section>
                 <section className="panel process-settings">
                   <h2>Como funciona a encomenda</h2>
                   <p className="muted">
-                    Personalize toda a explicação ao lado do formulário, desde o
-                    primeiro contato até a arte final.
+                    Personalize a explicação na seção Contato, desde o primeiro
+                    contato até a arte final.
                   </p>
                   <RichTextEditor
                     value={cfg.processContent}
@@ -1649,7 +1545,7 @@ export default function Admin() {
                   />
                 </section>
                 <section className="panel">
-                  <h2>Contato & agenda</h2>
+                  <h2>Contato</h2>
                   <Text
                     label="E-mail público para contato"
                     value={cfg.email}
@@ -1662,16 +1558,6 @@ export default function Admin() {
                     max={15}
                     onChange={(whatsapp) => change({ ...cfg, whatsapp })}
                   />
-                  <Toggle
-                    checked={cfg.accepting}
-                    onChange={(accepting) => change({ ...cfg, accepting })}
-                  >
-                    Aceitar novas encomendas
-                  </Toggle>
-                  <p className="muted">
-                    Fechar a agenda preserva o portfólio e os pedidos
-                    existentes.
-                  </p>
                 </section>
                 <section className="panel privacy-settings">
                   <h2>Uso dos dados do pedido</h2>
@@ -1688,45 +1574,11 @@ export default function Admin() {
                     pedidos.
                   </p>
                 </section>
-                <section className="panel">
-                  <h2>Manutenção</h2>
-                  <p>
-                    Exporte os pedidos regularmente e execute o backup completo
-                    de banco e imagens conforme o guia do repositório.
-                  </p>
-                  <p className="muted">
-                    As cotas gratuitas são compartilhadas por produção, prévias
-                    e outros projetos da conta. Consulte o painel do Cloudflare
-                    mensalmente.
-                  </p>
-                  <a
-                    className="text-link"
-                    href="https://github.com/AKANexus/victor-quote-manager"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Abrir repositório & guia <ArrowUpRight size={15} />
-                  </a>
-                </section>
-                <section className="panel">
-                  <h2>Notificações</h2>
-                  <p>
-                    {session.emailEnabled
-                      ? "Novos pedidos chegam por e-mail e aparecem no painel."
-                      : "Novos pedidos aparecem no painel. O e-mail estará disponível após configurar o domínio."}
-                  </p>
-                  <p className="muted">
-                    {notification.attention} pedidos precisam de atenção. Use o
-                    sino no topo para abrir a lista.
-                  </p>
-                </section>
               </div>
             )}
           </fieldset>
           <footer className="admin-footer">
-            <span>
-              <Sparkles size={13} /> Menos administração. Mais criação.
-            </span>
+            <span>Desenvolvido por Nexus Web Dev</span>
             <small>Valores em BRL · Horários no fuso do seu navegador</small>
           </footer>
         </main>
@@ -1777,7 +1629,6 @@ export default function Admin() {
                 <div>
                   <small>{detail.service_name}</small>
                   <strong>{money(detail.estimate)}</strong>
-                  <span>Estimativa na versão {detail.config_version}</span>
                 </div>
                 <div>
                   <small>Recebido em</small>
@@ -1954,8 +1805,24 @@ export default function Admin() {
         <div className="preview-overlay">
           <div className="preview-toolbar">
             <strong>
-              <Eye size={17} /> Prévia do rascunho
+              <Eye size={17} /> Prévia do site
             </strong>
+            <div className="preview-pages" aria-label="Visualização da prévia">
+              <button
+                className="button ghost small"
+                aria-pressed={previewPage === "portfolio"}
+                onClick={() => setPreviewPage("portfolio")}
+              >
+                Portfólio
+              </button>
+              <button
+                className="button ghost small"
+                aria-pressed={previewPage === "commissions"}
+                onClick={() => setPreviewPage("commissions")}
+              >
+                Formulário de encomenda
+              </button>
+            </div>
             <span>O envio de pedidos está desativado nesta prévia.</span>
             <button
               className="button ghost small"
@@ -1964,7 +1831,17 @@ export default function Admin() {
               <X size={17} /> Fechar prévia
             </button>
           </div>
-          <Portfolio preview={cfg} />
+          <Portfolio
+            preview={cfg}
+            page={previewPage}
+            onNavigate={(page, hash) => {
+              setPreviewPage(page);
+              requestAnimationFrame(() => {
+                if (hash)
+                  document.getElementById(hash.slice(1))?.scrollIntoView();
+              });
+            }}
+          />
         </div>
       )}
     </div>

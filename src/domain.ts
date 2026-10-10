@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { defaultTheme, publicThemeSchema } from "./theme";
 
 const id = z.string().uuid();
 const cents = z.number().int().min(0).max(100_000_000);
@@ -58,7 +59,7 @@ export const richTextSchema = z
     )
       ctx.addIssue({
         code: "custom",
-        message: "O texto do processo deve ter até 10.000 caracteres.",
+        message: "O texto formatado deve ter até 10.000 caracteres.",
       });
   });
 export type RichText = z.infer<typeof richTextSchema>;
@@ -95,12 +96,12 @@ export const defaultProcess: RichText = [
 ];
 export const presentationDefaults = {
   mainImageId: null as string | null,
+  mainImageAlt: "",
+  artistBio: "",
+  publicTheme: defaultTheme,
   carouselLabel: "Seleção do artista",
   portfolioTitle: "Um pouco do meu universo",
   portfolioSubtitle: "Traços que contam histórias.",
-  commissionTitle: "Sua próxima arte começa aqui.",
-  commissionIntro:
-    "Algumas perguntas para entender sua ideia e preparar uma estimativa. Sem compromisso, com espaço para conversar.",
   processContent: defaultProcess,
 };
 
@@ -115,6 +116,9 @@ export const configSchema = z
     privacy: z.string().trim().min(1).max(3000),
     featuredArtIds: z.array(id).max(5).default([]),
     mainImageId: id.nullable().default(null),
+    mainImageAlt: z.string().trim().max(200).default(""),
+    artistBio: z.union([z.string().max(3000), richTextSchema]).default(""),
+    publicTheme: publicThemeSchema.default(defaultTheme),
     carouselLabel: z
       .string()
       .trim()
@@ -131,16 +135,6 @@ export const configSchema = z
       .trim()
       .max(300)
       .default(presentationDefaults.portfolioSubtitle),
-    commissionTitle: z
-      .string()
-      .trim()
-      .min(1)
-      .max(180)
-      .default(presentationDefaults.commissionTitle),
-    commissionIntro: z
-      .string()
-      .max(1000)
-      .default(presentationDefaults.commissionIntro),
     processContent: richTextSchema.default(defaultProcess),
     gallery: z
       .array(

@@ -1403,11 +1403,11 @@ small {
   min-width: 0;
 }
 .admin-topbar {
-  min-height: 80px;
+  min-height: 64px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   padding: 16px 40px;
   font-family: var(--mono);
@@ -1533,7 +1533,7 @@ small {
 }
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
   margin-bottom: 24px;
 }
@@ -1571,6 +1571,9 @@ small {
   color: var(--muted);
   display: block;
   line-height: 1.6;
+}
+.agenda-toggle {
+  margin-top: 16px;
 }
 .panel {
   background: var(--surface);
@@ -2036,7 +2039,7 @@ small {
 .settings-grid .panel p {
   font-size: 12px;
 }
-.settings-grid .privacy-settings {
+.settings-grid .artist-about-settings {
   grid-column: 1/-1;
 }
 .modal-overlay {
@@ -2632,7 +2635,7 @@ small {
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  .settings-grid .privacy-settings {
+  .settings-grid .artist-about-settings {
     grid-column: auto;
   }
   .lead-detail {

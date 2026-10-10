@@ -12,6 +12,14 @@ import {
 } from "lucide-react";
 import { richTextSchema, type RichText } from "./domain";
 
+export function normalizeRichText(value: RichText | string): RichText {
+  return typeof value === "string"
+    ? value
+      ? [{ type: "paragraph", spans: [{ text: value }] }]
+      : []
+    : value;
+}
+
 function inline(spans: RichText[number]["spans"]) {
   return spans.map((span, index) => {
     let text: ReactNode = span.text;
@@ -218,10 +226,12 @@ export function RichTextEditor({
   value,
   onChange,
   disabled = false,
+  label = "Texto do processo",
 }: {
   value: RichText;
   onChange: (value: RichText) => void;
   disabled?: boolean;
+  label?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const lastValue = useRef("");
@@ -281,7 +291,7 @@ export function RichTextEditor({
       <div
         className="rich-text-toolbar"
         role="group"
-        aria-label="Formatação do processo"
+        aria-label={`Formatação: ${label}`}
       >
         {commands.map((item) => (
           <button
@@ -315,7 +325,7 @@ export function RichTextEditor({
         ref={root}
         className="rich-text-content rich-text-input"
         role="textbox"
-        aria-label="Texto do processo"
+        aria-label={label}
         aria-multiline="true"
         contentEditable={!disabled}
         aria-disabled={disabled}

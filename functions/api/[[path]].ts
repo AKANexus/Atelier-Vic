@@ -262,6 +262,51 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
           version: row.version,
         });
       }
+      if (path[1] === "config" && method === "PATCH") {
+        const data = parse(
+          z
+            .object({
+              accepting: z.boolean(),
+              revision: z.number().int().min(0),
+            })
+            .strict(),
+          await readJson(request),
+        );
+        const row = await settings(env);
+        if (!row.published)
+          throw new HttpError(
+            409,
+            "Publique o site antes de alterar a agenda.",
+          );
+        if (row.revision !== data.revision)
+          throw new HttpError(
+            409,
+            "A configuração mudou em outra sessão. Recarregue antes de alterar a agenda.",
+          );
+        if (
+          data.accepting &&
+          (!env.TURNSTILE_SECRET_KEY || !env.TURNSTILE_SITE_KEY)
+        )
+          throw new HttpError(
+            400,
+            "Configure o Turnstile antes de abrir novos pedidos.",
+          );
+        const result = await env.DB.prepare(
+          "UPDATE settings SET draft=json_set(draft,'$.accepting',json(?)),published=json_set(published,'$.accepting',json(?)),version=version+1,revision=revision+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=1 AND revision=? AND published IS NOT NULL",
+        )
+          .bind(
+            JSON.stringify(data.accepting),
+            JSON.stringify(data.accepting),
+            data.revision,
+          )
+          .run();
+        if (!result.meta.changes)
+          throw new HttpError(
+            409,
+            "A configuração mudou em outra sessão. Recarregue antes de alterar a agenda.",
+          );
+        return json({ revision: row.revision + 1 });
+      }
       if (path[1] === "config" && method === "PUT") {
         const data = parse(
           z.object({ config: configSchema, revision: z.number().int().min(0) }),
