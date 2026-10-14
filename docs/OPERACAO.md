@@ -36,8 +36,12 @@ Abra `http://127.0.0.1:8788/admin` para configurar o estúdio; abra `/` para o s
 
 ## Criar o ambiente Cloudflare
 
+O repositório GitHub se chama `AKANexus/Atelier-Vic`. O projeto Pages existente continua `victor-quote-manager`; os hostnames e nomes de recursos abaixo se referem a essa instalação. Não renomeie esses recursos apenas por causa da mudança do repositório.
+
+Para uma instalação independente, copie `wrangler.example.jsonc` para `wrangler.local.jsonc`, preencha os identificadores e variáveis dos seus recursos e passe `--config wrangler.local.jsonc` explicitamente ao Wrangler. O exemplo contém identificadores fictícios e acesso administrativo desconfigurado. Não o publique sobre a instalação existente. O comando `npm run backup` continua usando a configuração operacional padrão; ele não deve ser usado para outra instalação sem adaptar explicitamente o script.
+
 1. Na conta escolhida, confira **Compute → Workers plans → Free / Current plan**. As cotas são da conta, compartilhadas entre ambientes e projetos. Não faça upgrade para resolver cotas.
-2. Autorize o app **Cloudflare Workers and Pages** no GitHub apenas para `AKANexus/victor-quote-manager`.
+2. Autorize o app **Cloudflare Workers and Pages** no GitHub apenas para `AKANexus/Atelier-Vic`.
 3. Crie em **Storage & databases → D1** os bancos `victor-quote-production` e `victor-quote-preview`.
 4. Crie em **Storage & databases → KV** os namespaces `victor-art-production` e `victor-art-preview`.
 5. Atualize os IDs em `wrangler.jsonc`, mantendo produção e preview separados. IDs de recursos não são credenciais.

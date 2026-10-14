@@ -1,0 +1,13 @@
+title = "Atelier Vic — secret detection"
+
+[extend]
+useDefault = true
+
+# ACCESS_AUD identifies the Access application; it does not authenticate a user.
+# Match only this field, this file and the expected 64-character identifier.
+[[allowlists]]
+description = "Cloudflare Access public audience identifiers"
+condition = "AND"
+paths = ['''(^|/)wrangler\.jsonc$''']
+regexTarget = "line"
+regexes = ['''^\s*"ACCESS_AUD":\s*"[a-f0-9]{64}",?\s*$''']

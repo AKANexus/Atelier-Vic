@@ -8,3 +8,14 @@ dist/
 backups/
 *.log
 workers/wrangler.local.jsonc
+wrangler.local.jsonc
+security-reports/
+.playwright-cli/
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
