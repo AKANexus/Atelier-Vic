@@ -1,6 +1,12 @@
-# Ateliê — portfólio e gestão de encomendas
+# Atelier Vic — portfólio e gestão de encomendas
 
 Site de portfólio e gestão de encomendas desenvolvido sob medida para um artista. Reúne apresentação de obras, coleta de briefing, estimativas de preço e um painel administrativo para organizar solicitações e acompanhar trabalhos.
+
+## Sobre o código
+
+Este repositório apresenta a implementação de um projeto para cliente. Não há licença aberta concedendo reutilização do código próprio; eventuais usos além dos permitidos pela plataforma dependem de autorização dos titulares. Dependências e fontes mantêm suas próprias licenças, incluindo os avisos em [fonts-LICENSE.txt](public/fonts-LICENSE.txt).
+
+Dados de clientes, pedidos, imagens armazenadas no serviço e backups não fazem parte deste repositório. Consulte a [orientação de segurança](SECURITY.md) antes de configurar uma instalação.
 
 ## Funcionalidades
 
@@ -87,6 +93,8 @@ O projeto foi planejado para os planos gratuitos dos serviços Cloudflare utiliz
 - [Backup e restauração](docs/OPERACAO.md#backup-e-restauração).
 
 A implantação depende da configuração dos recursos e segredos do ambiente. Notificações ficam desativadas até a preparação e validação do e-mail. O guia preserva os procedimentos operacionais e as restrições de contratação do projeto.
+
+O repositório foi renomeado para `AKANexus/Atelier-Vic`; o nome do projeto Pages existente continua `victor-quote-manager`. Renomear o repositório não exige renomear o serviço Cloudflare. O arquivo [wrangler.example.jsonc](wrangler.example.jsonc) fornece um modelo sem identificadores da instalação; ele não substitui automaticamente a configuração operacional existente.
 
 ## Limites da versão
 

@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "atelier-vic-example",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-10-08",
+  "vars": {
+    "NODE_VERSION": "24",
+    "EMAIL_ENABLED": "false",
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": "",
+    "TURNSTILE_SITE_KEY": "",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "atelier-vic-example-production",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "kv_namespaces": [
+    { "binding": "MEDIA", "id": "00000000000000000000000000000000" },
+  ],
+  "env": {
+    "preview": {
+      "vars": {
+        "NODE_VERSION": "24",
+        "EMAIL_ENABLED": "false",
+        "ACCESS_TEAM_DOMAIN": "",
+        "ACCESS_AUD": "",
+        "TURNSTILE_SITE_KEY": "",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "atelier-vic-example-preview",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "kv_namespaces": [
+        { "binding": "MEDIA", "id": "00000000000000000000000000000000" },
+      ],
+    },
+  },
+}
