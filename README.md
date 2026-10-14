@@ -1,8 +1,6 @@
 # Ateliê — portfólio e gestão de encomendas
 
-Aplicação web para artistas apresentarem suas obras, receberem briefings e acompanharem encomendas em um painel administrativo. O visitante escolhe um serviço, responde a perguntas condicionais e recebe uma estimativa inicial; o artista conduz a negociação e registra a evolução do trabalho.
-
-O projeto reúne site público, editor de conteúdo, cálculo de orçamento e gestão de leads. A interface é em português brasileiro e os valores são apresentados em reais.
+Site de portfólio e gestão de encomendas desenvolvido sob medida para um artista. Reúne apresentação de obras, coleta de briefing, estimativas de preço e um painel administrativo para organizar solicitações e acompanhar trabalhos.
 
 ## Funcionalidades
 
