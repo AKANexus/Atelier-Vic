@@ -12,7 +12,11 @@ import {
   buttonText,
   themeStyle,
 } from "../src/theme";
-import { legacyDestination } from "../src/publicRoutes";
+import {
+  legacyDestination,
+  publicRoute,
+  publicHref,
+} from "../src/publicRoutes";
 
 describe("artist theme validation", () => {
   it("provides six accessible dark presets, three muted and three neon", () => {
@@ -142,11 +146,15 @@ describe("artist configuration and public destinations", () => {
       mediaIds(configSchema.parse({ ...defaultConfig, mainImageId: id })),
     ).toContain(id);
   });
-  it("keeps a single portfolio page and maps the retired route to the modal", () => {
-    expect(legacyDestination("/", "#encomendar")).toBeNull();
-    expect(legacyDestination("/", "#processo")).toBeNull();
-    expect(legacyDestination("/encomendas", "")).toBe("/#encomendar");
-    expect(legacyDestination("/encomendas/", "#processo")).toBe("/#processo");
+  it("maps legacy links to the about page and contact page", () => {
+    expect(legacyDestination("/", "#sobre")).toBe("/sobre");
+    expect(legacyDestination("/sobre", "")).toBeNull();
+    expect(legacyDestination("/", "#encomendar")).toBe("/contato");
+    expect(legacyDestination("/", "#processo")).toBe("/contato#processo");
+    expect(legacyDestination("/encomendas", "")).toBe("/contato");
+    expect(legacyDestination("/encomendas/", "#processo")).toBe(
+      "/contato#processo",
+    );
     expect(legacyDestination("/", "#trabalhos")).toBeNull();
     expect(legacyDestination("/admin", "#processo")).toBeNull();
   });
@@ -169,23 +177,46 @@ describe("artist configuration and public destinations", () => {
     const html = renderToStaticMarkup(
       createElement(Portfolio, { preview: config, page: "portfolio" }),
     );
-    expect(html).toContain("Biografia do artista");
+    expect(html).not.toContain("Biografia do artista");
+    expect(html).toContain('href="/sobre"');
     expect(html).toContain("Banner ilustrado");
-    expect(html).toContain("Ver Obra existente");
-    expect(html).toContain('href="#encomendar"');
+    expect(html).toContain("Outros trabalhos");
+    expect(html).toContain('href="/portfolio/outros"');
+    expect(html).toContain('href="/contato"');
     expect(html).not.toContain("Como funciona a encomenda");
-    expect(html).toContain("Encomende uma arte");
+    expect(html).not.toContain("Solicitar orçamento");
     expect(html).not.toContain("<form");
     expect(html).not.toContain("Visualizar");
     expect(html).not.toContain("featured-carousel");
     expect(html.indexOf('class="artist-banner"')).toBeLessThan(
       html.indexOf('class="artist-introduction"'),
     );
-    expect(html.indexOf('id="trabalhos"')).toBeLessThan(
-      html.indexOf('id="sobre"'),
-    );
+    expect(html).not.toContain('id="sobre"');
   });
-  it("renders only onboarding in an accessible modal over the portfolio", () => {
+  it("renders the biography on its own page with navigation back to the portfolio", () => {
+    const html = renderToStaticMarkup(
+      createElement(Portfolio, {
+        preview: { ...defaultConfig, artistBio: "Biografia do artista" },
+        page: "about",
+      }),
+    );
+    expect(html).toContain("Biografia do artista");
+    expect(html).toContain("<h1>Sobre</h1>");
+    expect(html).toContain('href="/sobre" aria-current="page"');
+    expect(html).toContain('href="/"');
+    expect(html).toContain('href="/contato"');
+    expect(html).not.toContain('id="trabalhos"');
+    expect(html).not.toContain('id="contato"');
+    expect(html).not.toContain('class="artist-banner"');
+    const fallback = renderToStaticMarkup(
+      createElement(Portfolio, {
+        preview: { ...defaultConfig, artistBio: "", intro: "Apresentação" },
+        page: "about",
+      }),
+    );
+    expect(fallback).toContain("<p>Apresentação</p>");
+  });
+  it("renders onboarding inline on the contact page", () => {
     const config = {
       ...defaultConfig,
       email: "artist@example.test",
@@ -201,24 +232,22 @@ describe("artist configuration and public destinations", () => {
       ],
     };
     const html = renderToStaticMarkup(
-      createElement(Portfolio, { preview: config, page: "commissions" }),
+      createElement(Portfolio, { preview: config, page: "contact" }),
     );
     expect(html).toContain("Disponível para encomendas");
     expect(html).toContain("<form");
     expect(html).toContain("Retrato");
-    expect(html).toContain('id="trabalhos"');
-    expect(html).toContain('class="commission-modal" role="dialog"');
-    expect(html).toContain('aria-modal="true"');
-    expect(html).toContain("Prefere falar direto?");
+    expect(html).not.toContain('id="trabalhos"');
+    expect(html).not.toContain('role="dialog"');
+    expect(html).not.toContain('aria-modal="true"');
+    expect(html).not.toContain("Prefere falar direto?");
     expect(html).not.toContain("Informações sobre encomendas");
-    expect(html.indexOf("Encomende uma arte")).toBeLessThan(
-      html.indexOf("Prefere falar direto?"),
-    );
+    expect(html).toContain("1 de 3");
 
     const closed = renderToStaticMarkup(
       createElement(Portfolio, {
         preview: { ...config, accepting: false },
-        page: "commissions",
+        page: "contact",
       }),
     );
     expect(closed).toContain("Agenda fechada");

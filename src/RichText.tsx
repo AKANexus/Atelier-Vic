@@ -11,6 +11,11 @@ import {
   Pilcrow,
 } from "lucide-react";
 import { richTextSchema, type RichText } from "./domain";
+import {
+  richTextTemplates,
+  type RichTextTemplateContext,
+  type RichTextTemplateName,
+} from "./richTextTemplates";
 
 export function normalizeRichText(value: RichText | string): RichText {
   return typeof value === "string"
@@ -20,7 +25,7 @@ export function normalizeRichText(value: RichText | string): RichText {
     : value;
 }
 
-function inline(spans: RichText[number]["spans"]) {
+function formatted(spans: RichText[number]["spans"]) {
   return spans.map((span, index) => {
     let text: ReactNode = span.text;
     if (
@@ -46,7 +51,71 @@ function inline(spans: RichText[number]["spans"]) {
   });
 }
 
-export function RichTextContent({ value }: { value: RichText }) {
+function inline(
+  spans: RichText[number]["spans"],
+  context: RichTextTemplateContext,
+) {
+  const text = spans.map((span) => span.text).join("");
+  function range(start: number, end: number) {
+    let offset = 0;
+    return spans.flatMap((span) => {
+      const from = Math.max(0, start - offset);
+      const to = Math.min(span.text.length, end - offset);
+      offset += span.text.length;
+      return to > from ? [{ ...span, text: span.text.slice(from, to) }] : [];
+    });
+  }
+  const nodes: ReactNode[] = [];
+  const pattern = /<template=([a-z][a-z0-9_-]*)>([\s\S]*?)<\/template>/g;
+  let position = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index!;
+    const end = start + match[0].length;
+    nodes.push(
+      <Fragment key={`text-${start}`}>
+        {formatted(range(position, start))}
+      </Fragment>,
+    );
+    const name = match[1];
+    if (
+      Object.hasOwn(richTextTemplates, name) &&
+      !match[2].includes("<template=")
+    ) {
+      const contentStart = start + `<template=${name}>`.length;
+      const children = formatted(
+        range(contentStart, contentStart + match[2].length),
+      );
+      nodes.push(
+        <Fragment key={`template-${start}`}>
+          {richTextTemplates[name as RichTextTemplateName].render(
+            children,
+            context,
+          )}
+        </Fragment>,
+      );
+    } else
+      nodes.push(
+        <Fragment key={`literal-${start}`}>
+          {formatted(range(start, end))}
+        </Fragment>,
+      );
+    position = end;
+  }
+  nodes.push(
+    <Fragment key="remaining">
+      {formatted(range(position, text.length))}
+    </Fragment>,
+  );
+  return nodes;
+}
+
+export function RichTextContent({
+  value,
+  context = {},
+}: {
+  value: RichText;
+  context?: RichTextTemplateContext;
+}) {
   const nodes: ReactNode[] = [];
   for (let index = 0; index < value.length; index++) {
     const block = value[index];
@@ -55,7 +124,7 @@ export function RichTextContent({ value }: { value: RichText }) {
       const items: ReactNode[] = [];
       const key = index;
       do {
-        items.push(<li key={index}>{inline(value[index].spans)}</li>);
+        items.push(<li key={index}>{inline(value[index].spans, context)}</li>);
         index++;
       } while (index < value.length && value[index].type === block.type);
       index--;
@@ -69,7 +138,7 @@ export function RichTextContent({ value }: { value: RichText }) {
             : block.type === "quote"
               ? "blockquote"
               : "p";
-      nodes.push(<Tag key={index}>{inline(block.spans)}</Tag>);
+      nodes.push(<Tag key={index}>{inline(block.spans, context)}</Tag>);
     }
   }
   return <div className="rich-text-content">{nodes}</div>;
@@ -227,11 +296,13 @@ export function RichTextEditor({
   onChange,
   disabled = false,
   label = "Texto do processo",
+  templates = [],
 }: {
   value: RichText;
   onChange: (value: RichText) => void;
   disabled?: boolean;
   label?: string;
+  templates?: readonly RichTextTemplateName[];
 }) {
   const root = useRef<HTMLDivElement>(null);
   const lastValue = useRef("");
@@ -266,13 +337,30 @@ export function RichTextEditor({
     lastValue.current = JSON.stringify(next);
     onChange(next);
   }
+  function restoreSelection() {
+    const saved = selection.current?.cloneRange();
+    root.current?.focus();
+    const selected = window.getSelection();
+    if (!root.current || !selected) return;
+    const range =
+      saved && root.current.contains(saved.commonAncestorContainer)
+        ? saved
+        : document.createRange();
+    if (range !== saved) {
+      range.selectNodeContents(root.current);
+      range.collapse(false);
+    }
+    selected.removeAllRanges();
+    selected.addRange(range);
+    return range;
+  }
   const commands = [
     { name: "Negrito", icon: Bold, command: "bold" },
     { name: "Itálico", icon: Italic, command: "italic" },
     { name: "Sublinhado", icon: Underline, command: "underline" },
     { name: "Título", icon: Heading2, command: "formatBlock", value: "h2" },
     { name: "Subtítulo", icon: Heading3, command: "formatBlock", value: "h3" },
-    { name: "Parágrafo", icon: Pilcrow, command: "formatBlock", value: "p" },
+    { name: "Texto normal", icon: Pilcrow, command: "formatBlock", value: "p" },
     {
       name: "Lista com marcadores",
       icon: List,
@@ -297,29 +385,52 @@ export function RichTextEditor({
           <button
             type="button"
             key={item.name}
-            className="icon-button"
+            className={
+              item.value === "p"
+                ? "icon-button rich-text-normal"
+                : "icon-button"
+            }
+            disabled={disabled}
             title={item.name}
             aria-label={item.name}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
-              const saved = selection.current?.cloneRange();
-              root.current?.focus();
-              if (
-                saved &&
-                root.current?.contains(saved.commonAncestorContainer)
-              ) {
-                const selected = window.getSelection();
-                selected?.removeAllRanges();
-                selected?.addRange(saved);
-              }
+              restoreSelection();
               document.execCommand("styleWithCSS", false, "false");
               document.execCommand(item.command, false, item.value);
               update();
             }}
           >
             <item.icon size={18} />
+            {item.value === "p" && <span>Texto normal</span>}
           </button>
         ))}
+        {templates.map((name) => {
+          const template = richTextTemplates[name];
+          return (
+            <button
+              type="button"
+              key={name}
+              className="icon-button"
+              title={template.label}
+              aria-label={template.label}
+              disabled={disabled}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                const range = restoreSelection();
+                const text = range?.toString() || template.defaultText;
+                document.execCommand(
+                  "insertText",
+                  false,
+                  `<template=${name}>${text}</template>`,
+                );
+                update();
+              }}
+            >
+              <template.icon size={18} />
+            </button>
+          );
+        })}
       </div>
       <div
         ref={root}
@@ -345,6 +456,12 @@ export function RichTextEditor({
       {error && (
         <p className="error" role="alert">
           {error}
+        </p>
+      )}
+      {templates.length > 0 && (
+        <p className="muted">
+          Selecione um texto e use o envelope para inserir um link ao e-mail de
+          contato. A marcação do template vira um link na prévia e no site.
         </p>
       )}
       <p className="muted">

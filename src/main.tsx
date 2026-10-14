@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import Portfolio from "./Portfolio";
-import { legacyDestination } from "./publicRoutes";
+import { legacyDestination, publicRoute } from "./publicRoutes";
 import "./styles.css";
 import "./public.css";
 function redirectLegacyLink() {
@@ -20,7 +20,9 @@ createRoot(document.getElementById("root")!).render(
       {window.location.pathname.startsWith("/admin") ? (
         <Admin />
       ) : (
-        <Portfolio />
+        <Portfolio
+          {...publicRoute(window.location.pathname, window.location.search)}
+        />
       )}
     </Suspense>
   </React.StrictMode>,

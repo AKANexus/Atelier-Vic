@@ -2673,3 +2673,22 @@ small {
     animation: none !important;
   }
 }
+
+.category-editor-row {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+  display: grid;
+  gap: 14px;
+}
+.category-cover-preview {
+  width: 160px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.rich-text-toolbar .rich-text-normal {
+  width: auto;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 12px;
+}

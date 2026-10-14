@@ -133,3 +133,108 @@ describe("configurable presentation", () => {
     expect(html).toContain("<u>Final</u>");
   });
 });
+
+describe("rich-text contact templates", () => {
+  const render = (text: string, contactEmail?: string) =>
+    renderToStaticMarkup(
+      createElement(RichTextContent, {
+        value: [{ type: "paragraph", spans: [{ text }] }],
+        context: { contactEmail },
+      }),
+    );
+  it("resolves the current email and includes the mail icon with the custom label", () => {
+    const text = "Antes <template=contato>Escreva para mim</template> depois";
+    const html = render(text, "artist@example.test");
+    expect(html).toContain('href="mailto:artist@example.test"');
+    expect(html).toContain("lucide-mail");
+    expect(html).toContain("Escreva para mim");
+    expect(html).toContain("Antes ");
+    expect(html).toContain(" depois");
+    expect(html).not.toContain("&lt;template");
+    expect(render(text, "new@example.test")).toContain(
+      'href="mailto:new@example.test"',
+    );
+  });
+  it("keeps formatting when template markers cross span boundaries", () => {
+    const html = renderToStaticMarkup(
+      createElement(RichTextContent, {
+        value: [
+          {
+            type: "bullet",
+            spans: [
+              { text: "Veja <template=con" },
+              { text: "tato>Meu ", italic: true },
+              { text: "contato", bold: true },
+              { text: "</template> aqui", underline: true },
+            ],
+          },
+        ],
+        context: { contactEmail: "artist@example.test" },
+      }),
+    );
+    expect(html).toContain('href="mailto:artist@example.test"');
+    expect(html).toContain("<em>Meu </em>");
+    expect(html).toContain("<strong>contato</strong>");
+    expect(html).toContain("<u> aqui</u>");
+    expect(html).toContain("<ul>");
+  });
+  it("renders labels as plain text without a valid contact email", () => {
+    for (const email of [undefined, "", "javascript:alert(1)", "bad email"]) {
+      const html = render("<template=contato>Meu contato</template>", email);
+      expect(html).toContain("Meu contato");
+      expect(html).not.toContain("<a ");
+      expect(html).not.toContain("<svg");
+      expect(html).not.toContain("&lt;template");
+    }
+  });
+  it("preserves unknown, incomplete and nested templates as escaped literal text", () => {
+    for (const text of [
+      "<template=futuro>Texto</template>",
+      "<template=contato>Texto",
+      "<template=contato><template=contato>Texto</template></template>",
+      "<template=constructor>Texto</template>",
+    ]) {
+      const html = render(text, "artist@example.test");
+      expect(html).not.toContain("<a ");
+      expect(html).toContain("&lt;template=");
+    }
+  });
+  it("escapes HTML inside labels and supports multiple contact templates", () => {
+    const html = render(
+      "<template=contato><img src=x onerror=alert(1)></template> e <template=contato>Outro contato</template>",
+      "artist@example.test",
+    );
+    expect(html.match(/href="mailto:artist@example.test"/g)).toHaveLength(2);
+    expect(html).toContain("&lt;img");
+    expect(html).not.toContain("<img");
+  });
+  it("stores template markers as ordinary rich text without schema changes", () => {
+    const value = [
+      {
+        type: "paragraph",
+        spans: [{ text: "<template=contato>Meu texto</template>" }],
+      },
+    ];
+    expect(richTextSchema.parse(value)).toEqual(value);
+  });
+  it("offers the contact tool only in editors that enable it", () => {
+    const props = { value: [], onChange: () => {} };
+    expect(
+      renderToStaticMarkup(createElement(RichTextEditor, props)),
+    ).not.toContain("Inserir link de contato");
+    const editor = renderToStaticMarkup(
+      createElement(RichTextEditor, { ...props, templates: ["contato"] }),
+    );
+    expect(editor).toContain('aria-label="Inserir link de contato"');
+    const disabled = renderToStaticMarkup(
+      createElement(RichTextEditor, {
+        ...props,
+        templates: ["contato"],
+        disabled: true,
+      }),
+    );
+    expect(disabled).toMatch(
+      /aria-label="Inserir link de contato"[^>]*disabled=""/,
+    );
+  });
+});

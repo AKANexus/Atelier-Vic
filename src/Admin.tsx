@@ -16,6 +16,7 @@ import {
   ListChecks,
   LogOut,
   Mail,
+  Palette,
   Plus,
   Save,
   Settings,
@@ -41,9 +42,9 @@ import Portfolio from "./Portfolio";
 import { RichTextEditor, normalizeRichText } from "./RichText";
 import ThemeEditor from "./ThemeEditor";
 import { publicThemeSchema } from "./theme";
-import type { PublicPage } from "./publicRoutes";
+import type { PublicRoute } from "./publicRoutes";
 
-type Tab = "leads" | "forms" | "media" | "settings";
+type Tab = "leads" | "forms" | "gallery" | "portfolio" | "settings";
 type Session = {
   email: string;
   local: boolean;
@@ -548,7 +549,9 @@ export default function Admin() {
     emailFailures: 0,
   });
   const [preview, setPreview] = useState(false);
-  const [previewPage, setPreviewPage] = useState<PublicPage>("portfolio");
+  const [previewRoute, setPreviewRoute] = useState<PublicRoute>({
+    page: "portfolio",
+  });
   const themeValid = publicThemeSchema.safeParse(cfg.publicTheme).success;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [more, setMore] = useState(false);
@@ -717,7 +720,7 @@ export default function Admin() {
     await refreshMedia();
     return banner
       ? "Banner enviado e selecionado. Confira a prévia antes de publicar."
-      : "Imagem enviada. Adicione ao portfólio ou às perguntas antes de publicar.";
+      : "Imagem enviada. Já está disponível para usar como banner, capa, obra ou exemplo.";
   }
   async function exportLeads() {
     const all: Lead[] = [];
@@ -768,17 +771,12 @@ export default function Admin() {
         <a href="/">Voltar ao site</a>
       </div>
     );
-  const titles = {
-    leads: ["Leads & trabalhos", "Cada ideia tem um próximo passo."],
-    forms: [
-      "Formulários & preços",
-      "Um orçamento começa com as perguntas certas.",
-    ],
-    media: ["Biblioteca & portfólio", "Dê espaço ao seu trabalho."],
-    settings: [
-      "Seu estúdio, do seu jeito",
-      "Os detalhes que apresentam você ao mundo.",
-    ],
+  const titles: Record<Tab, string> = {
+    leads: "Leads & trabalhos",
+    forms: "Formulários & preços",
+    gallery: "Galeria",
+    portfolio: "Portfólio",
+    settings: "Seu estúdio, do seu jeito",
   };
   return (
     <div className="admin-layout">
@@ -799,7 +797,8 @@ export default function Admin() {
           {[
             { id: "leads", name: "Leads & trabalhos", icon: LayoutDashboard },
             { id: "forms", name: "Formulários & preços", icon: ListChecks },
-            { id: "media", name: "Biblioteca & portfólio", icon: Images },
+            { id: "gallery", name: "Galeria", icon: Images },
+            { id: "portfolio", name: "Portfólio", icon: Palette },
             { id: "settings", name: "Configurações", icon: Settings },
           ].map((item) => (
             <button
@@ -843,10 +842,9 @@ export default function Admin() {
           <div className="admin-page-heading">
             <div>
               <span className="eyebrow">BEM-VINDO AO SEU ATELIÊ</span>
-              <h1>{titles[tab][0]}</h1>
-              <p>{titles[tab][1]}</p>
+              <h1>{titles[tab]}</h1>
             </div>
-            {tab !== "leads" && (
+            {tab !== "leads" && tab !== "gallery" && (
               <div className="toolbar">
                 <button
                   className="button ghost small"
@@ -1131,6 +1129,11 @@ export default function Admin() {
                           services: cfg.services.filter(
                             (item) => item.id !== s.id,
                           ),
+                          categories: cfg.categories.map((category) =>
+                            category.serviceId === s.id
+                              ? { ...category, serviceId: null }
+                              : category,
+                          ),
                         });
                     }}
                   />
@@ -1168,12 +1171,12 @@ export default function Admin() {
                 </button>
               </>
             )}
-            {tab === "media" && (
+            {tab === "gallery" && (
               <>
                 <section className="panel">
                   <div className="panel-heading">
                     <div>
-                      <h2>Biblioteca de imagens</h2>
+                      <h2>Galeria de imagens</h2>
                       <p>Use no portfólio e nos exemplos do formulário.</p>
                     </div>
                     <label className="button primary small upload-button">
@@ -1273,12 +1276,185 @@ export default function Admin() {
                     </div>
                   )}
                 </section>
+              </>
+            )}
+            {tab === "portfolio" && (
+              <>
+                <section className="panel category-editor">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Categorias do portfólio</h2>
+                      <p>
+                        Organize suas obras e escolha uma capa para cada
+                        categoria.
+                      </p>
+                    </div>
+                    <button
+                      className="button ghost small"
+                      onClick={() =>
+                        change({
+                          ...cfg,
+                          categories: [
+                            ...cfg.categories,
+                            {
+                              id: crypto.randomUUID(),
+                              name: "Nova categoria",
+                              coverImageId: null,
+                              serviceId: null,
+                            },
+                          ],
+                        })
+                      }
+                      disabled={cfg.categories.length >= 100}
+                    >
+                      <Plus size={16} />
+                      Adicionar categoria
+                    </button>
+                  </div>
+                  {cfg.categories.map((category, index) => (
+                    <div className="category-editor-row" key={category.id}>
+                      <Text
+                        label="Nome da categoria"
+                        value={category.name}
+                        max={100}
+                        onChange={(name) =>
+                          change({
+                            ...cfg,
+                            categories: cfg.categories.map((item) =>
+                              item.id === category.id
+                                ? { ...item, name }
+                                : item,
+                            ),
+                          })
+                        }
+                      />
+                      <label>
+                        Capa da categoria
+                        <select
+                          value={category.coverImageId || ""}
+                          onChange={(event) =>
+                            change({
+                              ...cfg,
+                              categories: cfg.categories.map((item) =>
+                                item.id === category.id
+                                  ? {
+                                      ...item,
+                                      coverImageId: event.target.value || null,
+                                    }
+                                  : item,
+                              ),
+                            })
+                          }
+                        >
+                          <option value="">Primeira obra da categoria</option>
+                          {media
+                            .filter((item) => item.state === "ready")
+                            .map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.title}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      {category.coverImageId && (
+                        <img
+                          className="category-cover-preview"
+                          src={`/api/admin/media/${category.coverImageId}?size=thumbnail`}
+                          alt={`Capa de ${category.name}`}
+                        />
+                      )}
+                      <label>
+                        Serviço sugerido no contato
+                        <select
+                          value={category.serviceId || ""}
+                          onChange={(event) =>
+                            change({
+                              ...cfg,
+                              categories: cfg.categories.map((item) =>
+                                item.id === category.id
+                                  ? {
+                                      ...item,
+                                      serviceId: event.target.value || null,
+                                    }
+                                  : item,
+                              ),
+                            })
+                          }
+                        >
+                          <option value="">Deixar o visitante escolher</option>
+                          {cfg.services.map((service) => (
+                            <option key={service.id} value={service.id}>
+                              {service.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="form-actions">
+                        <button
+                          className="icon-button"
+                          aria-label={`Mover ${category.name} para cima`}
+                          disabled={!index}
+                          onClick={() => {
+                            const categories = [...cfg.categories];
+                            [categories[index - 1], categories[index]] = [
+                              categories[index],
+                              categories[index - 1],
+                            ];
+                            change({ ...cfg, categories });
+                          }}
+                        >
+                          <ArrowUp size={16} />
+                        </button>
+                        <button
+                          className="icon-button"
+                          aria-label={`Mover ${category.name} para baixo`}
+                          disabled={index === cfg.categories.length - 1}
+                          onClick={() => {
+                            const categories = [...cfg.categories];
+                            [categories[index + 1], categories[index]] = [
+                              categories[index],
+                              categories[index + 1],
+                            ];
+                            change({ ...cfg, categories });
+                          }}
+                        >
+                          <ArrowDown size={16} />
+                        </button>
+                        <button
+                          className="icon-button danger"
+                          aria-label={`Excluir categoria ${category.name}`}
+                          onClick={() =>
+                            change({
+                              ...cfg,
+                              categories: cfg.categories.filter(
+                                (item) => item.id !== category.id,
+                              ),
+                              gallery: cfg.gallery.map((art) =>
+                                art.categoryId === category.id
+                                  ? { ...art, categoryId: null }
+                                  : art,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {!cfg.categories.length && (
+                    <p className="muted">
+                      As obras sem categoria aparecem em Outros trabalhos.
+                    </p>
+                  )}
+                </section>
                 <section className="panel">
                   <div className="panel-heading">
                     <div>
                       <h2>Portfólio público</h2>
                       <p>
-                        Marque as artes que deseja destacar na abertura do site.
+                        Escolha a categoria de cada obra e organize a ordem dos
+                        trabalhos.
                       </p>
                     </div>
                   </div>
@@ -1316,6 +1492,32 @@ export default function Admin() {
                             })
                           }
                         />
+                        <label>
+                          Categoria
+                          <select
+                            value={g.categoryId || ""}
+                            onChange={(event) =>
+                              change({
+                                ...cfg,
+                                gallery: cfg.gallery.map((item) =>
+                                  item.id === g.id
+                                    ? {
+                                        ...item,
+                                        categoryId: event.target.value || null,
+                                      }
+                                    : item,
+                                ),
+                              })
+                            }
+                          >
+                            <option value="">Outros trabalhos</option>
+                            {cfg.categories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         <Text
                           label="Descrição acessível da imagem"
                           value={g.alt}
@@ -1383,7 +1585,7 @@ export default function Admin() {
                   ))}
                   {!cfg.gallery.length && (
                     <p className="muted">
-                      Adicione imagens da biblioteca ao portfólio.
+                      Adicione imagens da Galeria ao portfólio.
                     </p>
                   )}
                 </section>
@@ -1525,19 +1727,17 @@ export default function Admin() {
                     </div>
                     {!media.length && (
                       <p className="muted">
-                        Envie uma imagem em Biblioteca & portfólio primeiro.
+                        Envie uma imagem na Galeria primeiro.
                       </p>
                     )}
                   </details>
                 </section>
                 <section className="panel process-settings">
-                  <h2>Como funciona a encomenda</h2>
-                  <p className="muted">
-                    Personalize a explicação na seção Contato, desde o primeiro
-                    contato até a arte final.
-                  </p>
+                  <h2>Como entrar em contato</h2>
                   <RichTextEditor
                     value={cfg.processContent}
+                    label="Como entrar em contato"
+                    templates={["contato"]}
                     disabled={busy}
                     onChange={(processContent) =>
                       change({ ...cfg, processContent })
@@ -1810,17 +2010,26 @@ export default function Admin() {
             <div className="preview-pages" aria-label="Visualização da prévia">
               <button
                 className="button ghost small"
-                aria-pressed={previewPage === "portfolio"}
-                onClick={() => setPreviewPage("portfolio")}
+                aria-pressed={["portfolio", "category"].includes(
+                  previewRoute.page,
+                )}
+                onClick={() => setPreviewRoute({ page: "portfolio" })}
               >
                 Portfólio
               </button>
               <button
                 className="button ghost small"
-                aria-pressed={previewPage === "commissions"}
-                onClick={() => setPreviewPage("commissions")}
+                aria-pressed={previewRoute.page === "about"}
+                onClick={() => setPreviewRoute({ page: "about" })}
               >
-                Formulário de encomenda
+                Sobre
+              </button>
+              <button
+                className="button ghost small"
+                aria-pressed={previewRoute.page === "contact"}
+                onClick={() => setPreviewRoute({ page: "contact" })}
+              >
+                Contato
               </button>
             </div>
             <span>O envio de pedidos está desativado nesta prévia.</span>
@@ -1833,13 +2042,12 @@ export default function Admin() {
           </div>
           <Portfolio
             preview={cfg}
-            page={previewPage}
-            onNavigate={(page, hash) => {
-              setPreviewPage(page);
-              requestAnimationFrame(() => {
-                if (hash)
-                  document.getElementById(hash.slice(1))?.scrollIntoView();
-              });
+            {...previewRoute}
+            onNavigate={(route) => {
+              setPreviewRoute(route);
+              requestAnimationFrame(() =>
+                document.getElementById("conteudo")?.scrollIntoView(),
+              );
             }}
           />
         </div>

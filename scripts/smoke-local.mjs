@@ -29,7 +29,15 @@ async function call(path, method = "GET", value, expected = 200, headers = {}) {
   );
   return data;
 }
-for (const path of ["/", "/encomendas", "/encomendas/"]) {
+for (const path of [
+  "/",
+  "/sobre",
+  "/contato",
+  "/portfolio/outros",
+  "/portfolio/inexistente",
+  "/encomendas",
+  "/encomendas/",
+]) {
   const response = await fetch(`${origin}${path}`);
   assert.equal(response.status, 200);
   assert.ok((await response.text()).includes('<div id="root"></div>'));
@@ -70,7 +78,13 @@ form.set("image", new Blob([image], { type: "image/webp" }), "test.webp");
 form.set("thumbnail", new Blob([image], { type: "image/webp" }), "test.webp");
 const uploaded = await call("admin/media", "POST", form, 201);
 await call(`media/${uploaded.id}`, "GET", undefined, 404);
+form.set("title", "Capa local de categoria");
+const cover = await call("admin/media", "POST", form, 201);
+await call(`media/${cover.id}`, "GET", undefined, 404);
 const config = structuredClone(start.draft);
+config.categories = [
+  { id: ids[4], name: "Retratos", coverImageId: cover.id, serviceId: ids[0] },
+];
 config.brand = "Ateliê de teste";
 config.email = "artist@example.test";
 config.accepting = true;
@@ -113,6 +127,7 @@ config.services = [
 config.gallery = [
   {
     id: uploaded.id,
+    categoryId: ids[4],
     title: "Teste local",
     alt: "Arte de teste local",
     description: "",
@@ -144,6 +159,9 @@ await call(`admin/media/${uploaded.id}`, "DELETE", {}, 409);
 const mediaResponse = await fetch(`${origin}/api/media/${uploaded.id}`);
 assert.equal(mediaResponse.status, 200);
 assert.equal(mediaResponse.headers.get("content-type"), "image/webp");
+assert.deepEqual((await call("config")).config.categories, config.categories);
+assert.equal((await fetch(`${origin}/api/media/${cover.id}`)).status, 200);
+await call(`admin/media/${cover.id}`, "DELETE", {}, 409);
 const base = {
   serviceId: ids[0],
   version: publication.version,
@@ -236,6 +254,10 @@ const mainOnly = await call("admin/config", "PUT", {
     carouselLabel: "Destaques",
     processContent: [
       { type: "heading", spans: [{ text: "Meu processo", bold: true }] },
+      {
+        type: "paragraph",
+        spans: [{ text: "<template=contato>Fale comigo</template>" }],
+      },
     ],
   },
   revision: invalidMain.revision,
@@ -250,6 +272,10 @@ assert.equal(mainPublic.artistBio, "Biografia de teste");
 assert.equal(mainPublic.publicTheme.preset, "neon-ciano");
 assert.equal(mainPublic.portfolioSubtitle, "");
 assert.equal(mainPublic.processContent[0].spans[0].bold, true);
+assert.equal(
+  mainPublic.processContent[1].spans[0].text,
+  "<template=contato>Fale comigo</template>",
+);
 assert.equal((await fetch(`${origin}/api/media/${uploaded.id}`)).status, 200);
 await call(`admin/media/${uploaded.id}`, "DELETE", {}, 409);
 const savedAgain = await call("admin/config", "PUT", {
@@ -262,6 +288,7 @@ await call("leads", "POST", { ...submission, key: crypto.randomUUID() }, 409);
 await call(`admin/leads/${lead.id}`, "DELETE", {});
 await call(`admin/leads/${lead.id}`, "GET", undefined, 404);
 await call(`admin/media/${uploaded.id}`, "DELETE", {});
+await call(`admin/media/${cover.id}`, "DELETE", {});
 console.log(
   "Local integration checks passed: publishing, image privacy, estimates, Turnstile submission, idempotency, attention, statuses, stale edits, search, main-image privacy, rich-text copy and deletion.",
 );

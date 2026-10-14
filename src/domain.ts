@@ -136,12 +136,24 @@ export const configSchema = z
       .max(300)
       .default(presentationDefaults.portfolioSubtitle),
     processContent: richTextSchema.default(defaultProcess),
+    categories: z
+      .array(
+        z.object({
+          id,
+          name: z.string().trim().min(1).max(100),
+          coverImageId: id.nullable().default(null),
+          serviceId: id.nullable().default(null),
+        }),
+      )
+      .max(100)
+      .default([]),
     gallery: z
       .array(
         z.object({
           id,
           title: z.string().trim().min(1).max(150),
           description: z.string().max(500),
+          categoryId: id.nullable().default(null),
           alt: z.string().trim().min(1).max(200),
         }),
       )
@@ -171,6 +183,32 @@ export const configSchema = z
         message:
           "Escolha até cinco artes diferentes do portfólio para destacar.",
       });
+    const categoryIds = new Set(
+      config.categories.map((category) => category.id),
+    );
+    if (categoryIds.size !== config.categories.length)
+      ctx.addIssue({
+        code: "custom",
+        path: ["categories"],
+        message: "Categorias repetidas.",
+      });
+    for (const category of config.categories)
+      if (
+        category.serviceId &&
+        !config.services.some((service) => service.id === category.serviceId)
+      )
+        ctx.addIssue({
+          code: "custom",
+          path: ["categories"],
+          message: "O serviço da categoria não existe.",
+        });
+    for (const art of config.gallery)
+      if (art.categoryId && !categoryIds.has(art.categoryId))
+        ctx.addIssue({
+          code: "custom",
+          path: ["gallery"],
+          message: "A categoria da obra não existe.",
+        });
     const all = new Set<string>();
     for (const service of config.services) {
       if (all.has(service.id))
@@ -225,7 +263,12 @@ export const configSchema = z
       });
   });
 
-export type Config = z.infer<typeof configSchema>;
+export type Config = Omit<z.infer<typeof configSchema>, "gallery"> & {
+  gallery: (Omit<
+    z.infer<typeof configSchema>["gallery"][number],
+    "categoryId"
+  > & { categoryId?: string | null })[];
+};
 export type Service = Config["services"][number];
 export type Question = Service["questions"][number];
 export type Answers = Record<string, string | string[]>;
@@ -263,6 +306,7 @@ export const defaultConfig: Config = {
   accepting: false,
   privacy:
     "Usaremos seu nome, e-mail e as informações do pedido para preparar um orçamento e conversar sobre a encomenda. Você pode solicitar a exclusão desses dados pelo contato do estúdio.",
+  categories: [],
   gallery: [],
   featuredArtIds: [],
   services: [],
@@ -361,6 +405,9 @@ export function mediaIds(config: Config): string[] {
     ...new Set([
       ...(config.mainImageId ? [config.mainImageId] : []),
       ...config.gallery.map((i) => i.id),
+      ...(config.categories || []).flatMap((category) =>
+        category.coverImageId ? [category.coverImageId] : [],
+      ),
       ...config.services.flatMap((s) =>
         s.questions.flatMap((q) => [
           ...q.samples,
@@ -399,4 +446,26 @@ export interface Lead {
   revision: number;
   created_at: string;
   updated_at: string;
+}
+
+export function portfolioCategories(config: Config) {
+  const categories = (config.categories || []).map((category) => {
+    const works = config.gallery.filter(
+      (art) => art.categoryId === category.id,
+    );
+    return {
+      ...category,
+      works,
+      coverImageId: category.coverImageId || works[0]?.id || null,
+    };
+  });
+  const works = config.gallery.filter((art) => !art.categoryId);
+  categories.push({
+    id: "outros",
+    name: "Outros trabalhos",
+    serviceId: null,
+    coverImageId: works[0]?.id || null,
+    works,
+  });
+  return categories;
 }
