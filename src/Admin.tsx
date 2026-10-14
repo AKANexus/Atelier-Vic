@@ -1347,11 +1347,11 @@ export default function Admin() {
                           }
                         >
                           <option value="">Primeira obra da categoria</option>
-                          {media
-                            .filter((item) => item.state === "ready")
-                            .map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.title}
+                          {cfg.gallery
+                            .filter((art) => art.categoryId === category.id)
+                            .map((art) => (
+                              <option key={art.id} value={art.id}>
+                                {art.title}
                               </option>
                             ))}
                         </select>
@@ -1363,32 +1363,6 @@ export default function Admin() {
                           alt={`Capa de ${category.name}`}
                         />
                       )}
-                      <label>
-                        Serviço sugerido no contato
-                        <select
-                          value={category.serviceId || ""}
-                          onChange={(event) =>
-                            change({
-                              ...cfg,
-                              categories: cfg.categories.map((item) =>
-                                item.id === category.id
-                                  ? {
-                                      ...item,
-                                      serviceId: event.target.value || null,
-                                    }
-                                  : item,
-                              ),
-                            })
-                          }
-                        >
-                          <option value="">Deixar o visitante escolher</option>
-                          {cfg.services.map((service) => (
-                            <option key={service.id} value={service.id}>
-                              {service.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
                       <div className="form-actions">
                         <button
                           className="icon-button"
@@ -1507,6 +1481,12 @@ export default function Admin() {
                                       }
                                     : item,
                                 ),
+                                categories: cfg.categories.map((category) =>
+                                  category.coverImageId === g.id &&
+                                  category.id !== event.target.value
+                                    ? { ...category, coverImageId: null }
+                                    : category,
+                                ),
                               })
                             }
                           >
@@ -1574,6 +1554,11 @@ export default function Admin() {
                               ),
                               gallery: cfg.gallery.filter(
                                 (item) => item.id !== g.id,
+                              ),
+                              categories: cfg.categories.map((category) =>
+                                category.coverImageId === g.id
+                                  ? { ...category, coverImageId: null }
+                                  : category,
                               ),
                             })
                           }
