@@ -126,9 +126,12 @@
   font-size: 14px;
 }
 .portfolio .gallery {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 32px 24px;
   align-items: start;
+}
+.portfolio .category-gallery {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .portfolio .art-card {
   background: transparent;
@@ -463,9 +466,6 @@
   margin-bottom: 20px;
 }
 @media (max-width: 1024px) {
-  .portfolio .gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .portfolio .commission {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;

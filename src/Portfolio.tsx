@@ -328,7 +328,7 @@ export default function Portfolio({
   }, [preview, loadAttempt]);
   useEffect(() => {
     if (preview || loading || loadError) return;
-    document.title = `${config.brand} · ${page === "about" ? "Sobre" : page === "contact" ? "Contato" : page === "category" ? category?.name || "Categoria não encontrada" : "Portfólio"}`;
+    document.title = `${config.brand} · ${page === "about" ? "Sobre" : page === "contact" ? "Encomenda" : page === "category" ? category?.name || "Categoria não encontrada" : "Portfólio"}`;
     const meta = document.querySelector('meta[name="theme-color"]');
     meta?.setAttribute("content", config.publicTheme.background);
     document
@@ -338,7 +338,7 @@ export default function Portfolio({
         page === "about"
           ? `Sobre ${config.brand}`
           : page === "contact"
-            ? `Contato e orçamento com ${config.brand}`
+            ? `Encomenda e orçamento com ${config.brand}`
             : page === "category"
               ? `${category?.name || "Categoria não encontrada"} · ${config.brand}`
               : config.intro || `Portfólio de ${config.brand}`,
@@ -547,7 +547,7 @@ export default function Portfolio({
         <nav aria-label="Navegação principal">
           {navLink("Portfólio", "portfolio")}
           {navLink("Sobre", "about")}
-          {navLink("Contato", "contact")}
+          {navLink("Encomenda", "contact")}
         </nav>
       </header>
       <main id="conteudo">
@@ -681,7 +681,7 @@ export default function Portfolio({
         ) : null}
         {page === "contact" && (
           <section className="artist-contact section" id="contato">
-            <h1>Contato</h1>
+            <h1>Encomenda</h1>
             <div className="commission">
               <div className="commission-intro">
                 <div className="artist-biography" id="processo">

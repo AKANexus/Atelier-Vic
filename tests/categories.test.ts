@@ -133,7 +133,7 @@ describe("portfolio categories", () => {
   it("preselects only valid service ids and renders contact without a dialog", () => {
     const html = render("contact", undefined, service.id);
     expect(html).toMatch(/name="service"[^>]*checked=""/);
-    expect(html).toContain("<h1>Contato</h1>");
+    expect(html).toContain("<h1>Encomenda</h1>");
     expect(html).toContain("<form");
     expect(html).not.toContain('role="dialog"');
     expect(html).not.toContain("inert=");
