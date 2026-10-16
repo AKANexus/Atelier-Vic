@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Mail } from "lucide-react";
+import { Link, Mail } from "lucide-react";
 import { z } from "zod";
 
 export interface RichTextTemplateContext {
@@ -12,6 +12,7 @@ export const richTextTemplates = {
     label: "Inserir link de contato",
     defaultText: "Fale comigo por e-mail",
     icon: Mail,
+    openingTag: "<template=contato>",
     render(children: ReactNode, context: RichTextTemplateContext): ReactNode {
       const email = z.email().safeParse(context.contactEmail);
       return email.success ? (
@@ -22,6 +23,29 @@ export const richTextTemplates = {
       ) : (
         children
       );
+    },
+  },
+  link: {
+    label: "Inserir link",
+    defaultText: "Texto do Link",
+    icon: Link,
+    openingTag: "<template=link url=https://seusite.com>",
+    render(
+      children: ReactNode,
+      _context: RichTextTemplateContext,
+      url?: string,
+    ): ReactNode {
+      try {
+        const parsed = new URL(url || "");
+        if (!["https:", "http:"].includes(parsed.protocol)) return children;
+        return (
+          <a className="rich-text-template-link" href={parsed.href}>
+            {children}
+          </a>
+        );
+      } catch {
+        return children;
+      }
     },
   },
 };

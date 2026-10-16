@@ -1811,11 +1811,11 @@ export default function Admin() {
                           max={3000}
                           onChange={(value) => updateCopy("privacy", value)}
                         />
-                        <p className="muted">
-                          {english
-                            ? "Traduções opcionais. Campos vazios usam o conteúdo em português."
-                            : "Revise o uso e a conservação dos dados. Exclusões e exportações ficam disponíveis nos pedidos."}
-                        </p>
+                        {english && (
+                          <p className="muted">
+                            Traduções opcionais. Campos vazios usam o conteúdo em português.
+                          </p>
+                        )}
                       </section>
                     );
                   })}
@@ -1833,6 +1833,7 @@ export default function Admin() {
                       <RichTextEditor
                         label="Sobre o artista — Português"
                         value={normalizeRichText(cfg.artistBio)}
+                        templates={["contato", "link"]}
                         disabled={busy}
                         onChange={(artistBio) => change({ ...cfg, artistBio })}
                       />
@@ -1851,6 +1852,7 @@ export default function Admin() {
                       <RichTextEditor
                         label="Sobre o artista — Inglês"
                         value={normalizeRichText(cfg.en?.artistBio || "")}
+                        templates={["contato", "link"]}
                         disabled={busy}
                         onChange={(artistBio) =>
                           change({ ...cfg, en: { ...cfg.en, artistBio } })
@@ -1969,7 +1971,7 @@ export default function Admin() {
                       <RichTextEditor
                         label="Como entrar em contato — Português"
                         value={cfg.processContent}
-                        templates={["contato"]}
+                        templates={["contato", "link"]}
                         disabled={busy}
                         onChange={(processContent) =>
                           change({ ...cfg, processContent })
@@ -1986,7 +1988,7 @@ export default function Admin() {
                       <RichTextEditor
                         label="Como entrar em contato — Inglês"
                         value={cfg.en?.processContent || []}
-                        templates={["contato"]}
+                        templates={["contato", "link"]}
                         disabled={busy}
                         onChange={(processContent) =>
                           change({ ...cfg, en: { ...cfg.en, processContent } })

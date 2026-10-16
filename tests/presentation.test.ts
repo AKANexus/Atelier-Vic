@@ -142,6 +142,53 @@ describe("rich-text contact templates", () => {
         context: { contactEmail },
       }),
     );
+  it("renders web links and rejects unsafe or invalid destinations", () => {
+    const html = render(
+      "<template=link url=https://seusite.com/path?q=1&x=2>Meu site</template>",
+    );
+    expect(html).toContain('href="https://seusite.com/path?q=1&amp;x=2"');
+    expect(html).toContain("Meu site");
+    expect(html).not.toContain("&lt;template");
+    for (const url of [
+      "javascript:alert(1)",
+      "data:text/html,test",
+      "ftp://site.test",
+      "invalido",
+    ]) {
+      const invalid = render(`<template=link url=${url}>Meu site</template>`);
+      expect(invalid).not.toContain("<a ");
+      expect(invalid).toContain("Meu site");
+    }
+  });
+  it("preserves formatting across link template spans", () => {
+    const html = renderToStaticMarkup(
+      createElement(RichTextContent, {
+        value: [
+          {
+            type: "paragraph",
+            spans: [
+              { text: "<template=link url=https://example.test>Meu " },
+              { text: "site", bold: true },
+              { text: "</template>" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain('href="https://example.test/"');
+    expect(html).toContain("<strong>site</strong>");
+  });
+  it("puts insertion tools in a separate toolbar row", () => {
+    const html = renderToStaticMarkup(
+      createElement(RichTextEditor, {
+        value: [],
+        onChange: () => {},
+        templates: ["contato", "link"],
+      }),
+    );
+    expect(html.match(/class="rich-text-toolbar"/g)).toHaveLength(2);
+    expect(html).toContain('aria-label="Inserir link"');
+  });
   it("resolves the current email and includes the mail icon with the custom label", () => {
     const text = "Antes <template=contato>Escreva para mim</template> depois";
     const html = render(text, "artist@example.test");

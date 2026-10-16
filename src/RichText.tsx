@@ -66,7 +66,8 @@ function inline(
     });
   }
   const nodes: ReactNode[] = [];
-  const pattern = /<template=([a-z][a-z0-9_-]*)>([\s\S]*?)<\/template>/g;
+  const pattern =
+    /<template=([a-z][a-z0-9_-]*)(?: url=([^<>\s]+))?>([\s\S]*?)<\/template>/g;
   let position = 0;
   for (const match of text.matchAll(pattern)) {
     const start = match.index!;
@@ -79,17 +80,19 @@ function inline(
     const name = match[1];
     if (
       Object.hasOwn(richTextTemplates, name) &&
-      !match[2].includes("<template=")
+      !match[3].includes("<template=") &&
+      (name === "link" ? Boolean(match[2]) : !match[2])
     ) {
-      const contentStart = start + `<template=${name}>`.length;
+      const contentStart = start + match[0].indexOf(">") + 1;
       const children = formatted(
-        range(contentStart, contentStart + match[2].length),
+        range(contentStart, contentStart + match[3].length),
       );
       nodes.push(
         <Fragment key={`template-${start}`}>
           {richTextTemplates[name as RichTextTemplateName].render(
             children,
             context,
+            match[2],
           )}
         </Fragment>,
       );
@@ -405,33 +408,41 @@ export function RichTextEditor({
             {item.value === "p" && <span>Texto normal</span>}
           </button>
         ))}
-        {templates.map((name) => {
-          const template = richTextTemplates[name];
-          return (
-            <button
-              type="button"
-              key={name}
-              className="icon-button"
-              title={template.label}
-              aria-label={template.label}
-              disabled={disabled}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                const range = restoreSelection();
-                const text = range?.toString() || template.defaultText;
-                document.execCommand(
-                  "insertText",
-                  false,
-                  `<template=${name}>${text}</template>`,
-                );
-                update();
-              }}
-            >
-              <template.icon size={18} />
-            </button>
-          );
-        })}
       </div>
+      {templates.length > 0 && (
+        <div
+          className="rich-text-toolbar"
+          role="group"
+          aria-label={`Inserir: ${label}`}
+        >
+          {templates.map((name) => {
+            const template = richTextTemplates[name];
+            return (
+              <button
+                type="button"
+                key={name}
+                className="icon-button"
+                title={template.label}
+                aria-label={template.label}
+                disabled={disabled}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  const range = restoreSelection();
+                  const text = range?.toString() || template.defaultText;
+                  document.execCommand(
+                    "insertText",
+                    false,
+                    `${template.openingTag}${text}</template>`,
+                  );
+                  update();
+                }}
+              >
+                <template.icon size={18} />
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div
         ref={root}
         className="rich-text-content rich-text-input"
@@ -458,16 +469,7 @@ export function RichTextEditor({
           {error}
         </p>
       )}
-      {templates.length > 0 && (
-        <p className="muted">
-          Selecione um texto e use o envelope para inserir um link ao e-mail de
-          contato. A marcação do template vira um link na prévia e no site.
-        </p>
-      )}
-      <p className="muted">
-        Até 10.000 caracteres. Use a barra para formatar títulos, parágrafos e
-        listas. Cole como texto; imagens e links externos não são incorporados.
-      </p>
+      <p className="muted">Até 10.000 caracteres.</p>
     </div>
   );
 }

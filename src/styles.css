@@ -562,10 +562,21 @@ small {
 .rich-text-toolbar {
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
-  padding: 10px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 8px;
   border-bottom: 1px solid var(--line);
   background: var(--elevated);
+}
+.rich-text-toolbar .icon-button {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+.rich-text-toolbar .icon-button svg {
+  width: 16px;
+  height: 16px;
 }
 .rich-text-input {
   min-height: 280px;
@@ -2688,9 +2699,10 @@ small {
 
 .rich-text-toolbar .rich-text-normal {
   width: auto;
-  gap: 8px;
-  padding: 0 12px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 /* Paired language cards share row heights, including resized text areas. */
@@ -2731,18 +2743,31 @@ small {
   gap: 24px;
 }
 .language-editors > section {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  row-gap: 0;
   min-width: 0;
 }
 .language-editors h3 {
   margin: 0 0 16px;
 }
 .language-editors .rich-text-editor {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 12px;
+}
+.language-editors .rich-text-input {
+  flex: 1;
 }
 @media (max-width: 760px) {
   .bilingual-settings,
   .language-editors {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .language-editors > section {
+    grid-row: auto;
+    grid-template-rows: auto auto auto;
   }
   .settings-grid .language-settings-card {
     grid-row: auto;
