@@ -22,7 +22,8 @@
   background: var(--background);
   backdrop-filter: none;
   border: 0;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 .portfolio.portfolio-preview .public-header {
   position: static;
@@ -62,6 +63,7 @@
   text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .portfolio .public-header nav {
+  justify-self: end;
   font-family: inherit;
   font-size: 13px;
   text-transform: none;
@@ -479,6 +481,10 @@
     display: block;
     padding: 14px var(--gutter);
   }
+  .portfolio .public-header > .language-switch {
+    justify-content: center;
+    margin-top: 8px;
+  }
   .portfolio .public-header nav {
     gap: 8px 18px;
     margin-top: 8px;
@@ -558,4 +564,40 @@
 .portfolio .rich-text-template-link:hover {
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+.language-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.language-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 7px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.language-switch button[aria-pressed="true"] {
+  border-color: var(--accent, currentColor);
+}
+.language-switch button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.language-switch button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.language-switch svg {
+  width: 28px;
+  height: 20px;
+}
+.public-header nav {
+  flex-wrap: wrap;
 }

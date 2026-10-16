@@ -1,5 +1,15 @@
 import {
+  LanguageProvider,
+  LanguageFlags,
+  useLanguage,
+  readLanguage,
+  hostLanguage,
+  languageDestination,
+  languageCookie,
+} from "./i18n";
+import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -22,6 +32,10 @@ import { publicHref, type PublicPage, type PublicRoute } from "./publicRoutes";
 import { RichTextContent, normalizeRichText } from "./RichText";
 import {
   defaultConfig,
+  localizedConfig,
+  serviceCurrency,
+  type Locale,
+  type Currency,
   portfolioCategories,
   money,
   quote,
@@ -72,6 +86,7 @@ function SecurityCheck({
   onToken: (token: string) => void;
   reset: number;
 }) {
+  const { locale, errorText } = useLanguage();
   const root = useRef<HTMLDivElement>(null);
   const widget = useRef<string | undefined>(undefined);
   const callback = useRef(onToken);
@@ -79,11 +94,14 @@ function SecurityCheck({
   const [error, setError] = useState("");
   useEffect(() => {
     let disposed = false;
+    callback.current("");
+    setError("");
     loadTurnstile()
       .then(() => {
         if (disposed || !root.current || !window.turnstile) return;
         widget.current = window.turnstile.render(root.current, {
           sitekey: siteKey,
+          language: locale === "en-US" ? "en" : "pt-br",
           action: "quote",
           theme: "dark",
           size: "compact",
@@ -101,7 +119,7 @@ function SecurityCheck({
       if (widget.current && window.turnstile)
         window.turnstile.remove(widget.current);
     };
-  }, [siteKey]);
+  }, [siteKey, locale]);
   useEffect(() => {
     if (reset && widget.current && window.turnstile) {
       window.turnstile.reset(widget.current);
@@ -113,13 +131,14 @@ function SecurityCheck({
       <div ref={root} />
       {error && (
         <p role="alert" className="error">
-          {error}
+          {errorText(error)}
         </p>
       )}
     </>
   );
 }
 function Samples({ ids }: { ids: string[] }) {
+  const { t } = useLanguage();
   const base = window.location.pathname.startsWith("/admin")
     ? "/api/admin/media"
     : "/api/media";
@@ -131,11 +150,11 @@ function Samples({ ids }: { ids: string[] }) {
           href={`${base}/${id}`}
           target="_blank"
           rel="noreferrer"
-          aria-label="Abrir exemplo em tamanho maior"
+          aria-label={t("Abrir exemplo em tamanho maior")}
         >
           <img
             src={`${base}/${id}?size=thumbnail`}
-            alt="Exemplo desta opção"
+            alt={t("Exemplo desta opção")}
             loading="lazy"
           />
         </a>
@@ -145,13 +164,16 @@ function Samples({ ids }: { ids: string[] }) {
 }
 function QuestionInput({
   question: q,
+  currency,
   value,
   onChange,
 }: {
   question: Question;
+  currency: Currency;
   value?: string | string[];
   onChange: (value: string | string[]) => void;
 }) {
+  const { locale, t } = useLanguage();
   return (
     <fieldset className="question">
       <legend>
@@ -192,11 +214,23 @@ function QuestionInput({
                     }
                   />
                   <span>{option.label}</span>
-                  {option.price > 0 && <small>+ {money(option.price)}</small>}
+                  {(currency === "USD" ? option.priceUsd! : option.price) >
+                    0 && (
+                    <small>
+                      +{" "}
+                      {money(
+                        currency === "USD" ? option.priceUsd! : option.price,
+                        currency,
+                        locale,
+                      )}
+                    </small>
+                  )}
                 </div>
                 <Samples ids={option.samples} />
                 {option.manualReview && (
-                  <small className="muted">Será avaliado pelo artista</small>
+                  <small className="muted">
+                    {t("Será avaliado pelo artista")}
+                  </small>
                 )}
               </label>
             );
@@ -221,26 +255,33 @@ function QuestionInput({
   );
 }
 
-export default function Portfolio({
+function PortfolioContent({
+  onLanguageChange,
   preview,
   page: selectedPage,
   onNavigate,
   categoryId,
   serviceId: suggestedServiceId,
 }: {
+  onLanguageChange: (locale: Locale) => void;
   preview?: Config;
   page?: PublicPage;
   onNavigate?: (route: PublicRoute) => void;
   categoryId?: string;
   serviceId?: string;
 }) {
+  const { locale, t, errorText } = useLanguage();
   const page = selectedPage || "portfolio";
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const [loading, setLoading] = useState(!preview);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const dialog = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
-  const [config, setConfig] = useState<Config>(preview || defaultConfig);
+  const [rawConfig, setConfig] = useState<Config>(preview || defaultConfig);
+  const config = useMemo(
+    () => localizedConfig(rawConfig, locale),
+    [rawConfig, locale],
+  );
   const [version, setVersion] = useState(0);
   const [siteKey, setSiteKey] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -250,7 +291,9 @@ export default function Portfolio({
       ? suggestedServiceId!
       : "",
   );
-  const categories = portfolioCategories(config);
+  const categories = portfolioCategories(config).map((c) =>
+    c.id === "outros" ? { ...c, name: t("Outros trabalhos") } : c,
+  );
   const category = categories.find((item) => item.id === categoryId);
   const works = page === "category" ? category?.works || [] : [];
   useEffect(() => {
@@ -298,6 +341,7 @@ export default function Portfolio({
   const [success, setSuccess] = useState<{
     id: string;
     estimate: number;
+    currency: Currency;
   } | null>(null);
   const key = useRef(crypto.randomUUID());
   useEffect(() => {
@@ -328,7 +372,7 @@ export default function Portfolio({
   }, [preview, loadAttempt]);
   useEffect(() => {
     if (preview || loading || loadError) return;
-    document.title = `${config.brand} · ${page === "about" ? "Sobre" : page === "contact" ? "Encomendas" : page === "category" ? category?.name || "Categoria não encontrada" : "Portfólio"}`;
+    document.title = `${config.brand} · ${page === "about" ? t("Sobre") : page === "contact" ? t("Encomendas") : page === "category" ? category?.name || t("Categoria não encontrada") : t("Portfólio")}`;
     const meta = document.querySelector('meta[name="theme-color"]');
     meta?.setAttribute("content", config.publicTheme.background);
     document
@@ -336,12 +380,12 @@ export default function Portfolio({
       ?.setAttribute(
         "content",
         page === "about"
-          ? `Sobre ${config.brand}`
+          ? `${t("Sobre")} ${config.brand}`
           : page === "contact"
-            ? `Encomendas de arte com ${config.brand}`
+            ? `${t("Encomendas")} · ${config.brand}`
             : page === "category"
-              ? `${category?.name || "Categoria não encontrada"} · ${config.brand}`
-              : config.intro || `Portfólio de ${config.brand}`,
+              ? `${category?.name || t("Categoria não encontrada")} · ${config.brand}`
+              : config.intro || `${t("Portfólio")} · ${config.brand}`,
       );
   }, [config, page, categoryId, preview, loading, loadError]);
   useEffect(() => {
@@ -443,9 +487,14 @@ export default function Portfolio({
     block.spans.some((span) => span.text.trim()),
   );
   const service = config.services.find((s) => s.id === serviceId);
-  let indicative = service?.basePrice || 0;
+  const currency = service ? serviceCurrency(service, locale) : "BRL";
+  let indicative = service
+    ? currency === "USD"
+      ? service.basePriceUsd!
+      : service.basePrice
+    : 0;
   try {
-    if (service) indicative = quote(service, answers, false).total;
+    if (service) indicative = quote(service, answers, false, locale).total;
   } catch {
     /* An incomplete selection is shown through form validation. */
   }
@@ -468,7 +517,7 @@ export default function Portfolio({
     }
     if (step === 1) {
       try {
-        quote(service, answers);
+        quote(service, answers, true, locale);
       } catch (error) {
         setError((error as Error).message);
         return;
@@ -486,10 +535,15 @@ export default function Portfolio({
     setBusy(true);
     setError("");
     try {
-      const response = await api<{ id: string; estimate: number }>("leads", {
+      const response = await api<{
+        id: string;
+        estimate: number;
+        currency: Currency;
+      }>("leads", {
         method: "POST",
         body: body({
           key: key.current,
+          locale,
           version,
           serviceId,
           answers,
@@ -518,15 +572,15 @@ export default function Portfolio({
         style={themeStyle(defaultConfig.publicTheme)}
       >
         {loading ? (
-          <p role="status">Carregando o portfólio…</p>
+          <p role="status">{t("Carregando o portfólio…")}</p>
         ) : (
           <div role="alert">
-            <p>Não foi possível carregar o site.</p>
+            <p>{t("Não foi possível carregar o site.")}</p>
             <button
               className="button primary"
               onClick={() => setLoadAttempt((attempt) => attempt + 1)}
             >
-              Tentar novamente
+              {t("Tentar novamente")}
             </button>
           </div>
         )}
@@ -534,20 +588,26 @@ export default function Portfolio({
     );
   return (
     <div
+      lang={locale}
       className={`portfolio ${preview ? "portfolio-preview" : ""}`}
       style={themeStyle(config.publicTheme) as CSSProperties}
     >
       <a className="skip-link" href="#conteudo">
-        Ir para o conteúdo
+        {t("Ir para o conteúdo")}
       </a>
       <header className="public-header">
         <span className="artist-wordmark">
           {navLink(config.brand, "portfolio")}
         </span>
-        <nav aria-label="Navegação principal">
-          {navLink("Portfólio", "portfolio")}
-          {navLink("Sobre", "about")}
-          {navLink("Encomendas", "contact")}
+        <LanguageFlags
+          locale={locale}
+          onChange={onLanguageChange}
+          disabled={busy}
+        />
+        <nav aria-label={t("Navegação principal")}>
+          {navLink(t("Portfólio"), "portfolio")}
+          {navLink(t("Sobre"), "about")}
+          {navLink(t("Encomendas"), "contact")}
         </nav>
       </header>
       <main id="conteudo">
@@ -572,7 +632,7 @@ export default function Portfolio({
         )}
         {page === "about" ? (
           <section className="artist-about section" id="sobre">
-            <h1>Sobre</h1>
+            <h1>{t("Sobre")}</h1>
             <div className="artist-biography">
               {hasBiography ? (
                 <RichTextContent
@@ -590,11 +650,11 @@ export default function Portfolio({
               {page === "category" ? (
                 <>
                   {routeLink(
-                    "Voltar ao portfólio",
+                    t("Voltar ao portfólio"),
                     { page: "portfolio" },
                     "text-link",
                   )}
-                  <h1>{category?.name || "Categoria não encontrada"}</h1>
+                  <h1>{category?.name || t("Categoria não encontrada")}</h1>
                 </>
               ) : (
                 <>
@@ -645,7 +705,7 @@ export default function Portfolio({
               ) : (
                 <div className="empty-portfolio">
                   <Palette size={27} />
-                  <p>Novos trabalhos estarão aqui em breve.</p>
+                  <p>{t("Novos trabalhos estarão aqui em breve.")}</p>
                 </div>
               )
             ) : works.length ? (
@@ -655,7 +715,7 @@ export default function Portfolio({
                     key={art.id}
                     className="art-card"
                     onClick={() => openArt(index)}
-                    aria-label={`Ver ${art.title}`}
+                    aria-label={`${locale === "en-US" ? "View" : "Ver"} ${art.title}`}
                   >
                     <div className="art-image">
                       <img
@@ -673,15 +733,17 @@ export default function Portfolio({
             ) : (
               <p>
                 {category
-                  ? "Novos trabalhos nesta categoria estarão aqui em breve."
-                  : "Esta categoria não existe. Explore as categorias do portfólio."}
+                  ? t("Novos trabalhos nesta categoria estarão aqui em breve.")
+                  : t(
+                      "Esta categoria não existe. Explore as categorias do portfólio.",
+                    )}
               </p>
             )}
           </section>
         ) : null}
         {page === "contact" && (
           <section className="artist-contact section" id="contato">
-            <h1>Encomendas</h1>
+            <h1>{t("Encomendas")}</h1>
             <div className="commission">
               <div className="commission-intro">
                 <div className="artist-biography" id="processo">
@@ -704,72 +766,82 @@ export default function Portfolio({
                 )}
               </div>
               <div className="contact-briefing">
-                <h2>Encomende uma arte</h2>
+                <h2>{t("Encomende uma arte")}</h2>
                 <p className="availability">
                   <span className={`dot ${config.accepting ? "" : "closed"}`} />
                   {config.accepting
-                    ? "Disponível para encomendas"
-                    : "Agenda fechada"}
+                    ? t("Disponível para encomendas")
+                    : t("Agenda fechada")}
                 </p>
                 <div className="quote-card">
                   {success ? (
                     <div className="success">
                       <CheckCircle2 size={44} />
-                      <h3>Sua ideia chegou!</h3>
+                      <h3>{t("Sua ideia chegou!")}</h3>
                       <p>
-                        O artista recebeu seu pedido e vai conversar com você
-                        pelo contato informado.
+                        {t(
+                          "O artista recebeu seu pedido e vai conversar com você pelo contato informado.",
+                        )}
                       </p>
                       <div className="estimate">
-                        <small>Estimativa inicial</small>
-                        <strong>{money(success.estimate)}</strong>
+                        <small>{t("Estimativa inicial")}</small>
+                        <strong>
+                          {money(success.estimate, success.currency, locale)}
+                        </strong>
                       </div>
                       <small>
-                        Referência do pedido:{" "}
+                        {t("Referência do pedido:")}{" "}
                         {success.id.slice(0, 8).toUpperCase()}
                       </small>
                       <p className="muted">
-                        O valor final será confirmado pelo artista.
+                        {t("O valor final será confirmado pelo artista.")}
                       </p>
                     </div>
                   ) : !config.accepting ? (
                     <div className="closed-state">
                       <Sparkles size={33} />
-                      <h3>A agenda está sendo preparada.</h3>
+                      <h3>{t("A agenda está sendo preparada.")}</h3>
                       <p>
-                        Novas encomendas estarão disponíveis em breve. Enquanto
-                        isso, conheça o portfólio ou entre em contato.
+                        {t(
+                          "Novas encomendas estarão disponíveis em breve. Enquanto isso, conheça o portfólio ou entre em contato.",
+                        )}
                       </p>
                     </div>
                   ) : (
                     <>
                       <div className="form-top">
-                        <span>SEU PEDIDO</span>
-                        <small>{step + 1} de 3</small>
+                        <span>{t("SEU PEDIDO")}</span>
+                        <small>
+                          {step + 1} {t("de 3")}
+                        </small>
                       </div>
                       <div className="steps">
-                        {["Sua arte", "Os detalhes", "Seu contato"].map(
-                          (label, index) => (
-                            <span
-                              key={label}
-                              className={step >= index ? "active" : ""}
-                            >
-                              <b>
-                                {step > index ? <Check size={13} /> : index + 1}
-                              </b>
-                              {label}
-                            </span>
-                          ),
-                        )}
+                        {[
+                          t("Sua arte"),
+                          t("Os detalhes"),
+                          t("Seu contato"),
+                        ].map((label, index) => (
+                          <span
+                            key={label}
+                            className={step >= index ? "active" : ""}
+                          >
+                            <b>
+                              {step > index ? <Check size={13} /> : index + 1}
+                            </b>
+                            {label}
+                          </span>
+                        ))}
                       </div>
                       <form onSubmit={step < 2 ? nextStep : submit}>
                         {step === 0 && (
                           <>
                             <h3 ref={stepHeading} tabIndex={-1}>
-                              O que vamos criar?
+                              {t("O que vamos criar?")}
                             </h3>
                             <p className="muted">
-                              Escolha o ponto de partida da sua encomenda.
+                              {t(
+                                "Escolha o ponto de partida da sua encomenda.",
+                              )}
                             </p>
                             <div className="service-options">
                               {config.services.map((item) => (
@@ -792,9 +864,17 @@ export default function Portfolio({
                                     <p>{item.description}</p>
                                   </div>
                                   <small>
-                                    A partir de
+                                    {t("A partir de")}
                                     <br />
-                                    <b>{money(item.basePrice)}</b>
+                                    <b>
+                                      {money(
+                                        serviceCurrency(item, locale) === "USD"
+                                          ? item.basePriceUsd!
+                                          : item.basePrice,
+                                        serviceCurrency(item, locale),
+                                        locale,
+                                      )}
+                                    </b>
                                   </small>
                                 </label>
                               ))}
@@ -804,10 +884,12 @@ export default function Portfolio({
                         {step === 1 && service && (
                           <>
                             <h3 ref={stepHeading} tabIndex={-1}>
-                              Vamos aos detalhes.
+                              {t("Vamos aos detalhes.")}
                             </h3>
                             <p className="muted">
-                              Pequenas escolhas deixam a arte com a sua cara.
+                              {t(
+                                "Pequenas escolhas deixam a arte com a sua cara.",
+                              )}
                             </p>
                             {service.questions
                               .filter((q) => visible(q, answers))
@@ -815,14 +897,16 @@ export default function Portfolio({
                                 <QuestionInput
                                   key={q.id}
                                   question={q}
+                                  currency={currency}
                                   value={answers[q.id]}
                                   onChange={(value) => answer(q.id, value)}
                                 />
                               ))}
                             {!service.questions.length && (
                               <p>
-                                Este tipo de arte não exige detalhes adicionais.
-                                Conte sua ideia no próximo passo.
+                                {t(
+                                  "Este tipo de arte não exige detalhes adicionais. Conte sua ideia no próximo passo.",
+                                )}
                               </p>
                             )}
                           </>
@@ -830,14 +914,15 @@ export default function Portfolio({
                         {step === 2 && (
                           <>
                             <h3 ref={stepHeading} tabIndex={-1}>
-                              Como podemos falar com você?
+                              {t("Como podemos falar com você?")}
                             </h3>
                             <p className="muted">
-                              Seu pedido será revisado pessoalmente pelo
-                              artista.
+                              {t(
+                                "Seu pedido será revisado pessoalmente pelo artista.",
+                              )}
                             </p>
                             <label>
-                              Seu nome *
+                              {t("Seu nome *")}
                               <input
                                 autoComplete="name"
                                 required
@@ -854,7 +939,7 @@ export default function Portfolio({
                             </label>
                             <div className="field-row">
                               <label>
-                                E-mail *
+                                {t("E-mail *")}
                                 <input
                                   type="email"
                                   autoComplete="email"
@@ -870,7 +955,7 @@ export default function Portfolio({
                                 />
                               </label>
                               <label>
-                                WhatsApp (opcional)
+                                {t("WhatsApp (opcional)")}
                                 <input
                                   type="tel"
                                   autoComplete="tel"
@@ -886,11 +971,13 @@ export default function Portfolio({
                               </label>
                             </div>
                             <label>
-                              Conte um pouco mais
+                              {t("Conte um pouco mais")}
                               <textarea
                                 rows={4}
                                 maxLength={3000}
-                                placeholder="Personagens, clima, cores, prazo… o que você tem em mente?"
+                                placeholder={t(
+                                  "Personagens, clima, cores, prazo… o que você tem em mente?",
+                                )}
                                 value={contact.request}
                                 onChange={(e) =>
                                   setContact({
@@ -901,10 +988,10 @@ export default function Portfolio({
                               />
                             </label>
                             <label>
-                              Links de referência (até 5)
+                              {t("Links de referência (até 5)")}
                               <textarea
                                 rows={2}
-                                placeholder="Um link HTTPS por linha"
+                                placeholder={t("Um link HTTPS por linha")}
                                 value={contact.references}
                                 onChange={(e) =>
                                   setContact({
@@ -928,13 +1015,14 @@ export default function Portfolio({
                                     })
                                   }
                                 />{" "}
-                                Concordo com o uso desses dados para este
-                                pedido.
+                                {t(
+                                  "Concordo com o uso desses dados para este pedido.",
+                                )}
                               </label>
                             </div>
                             {preview ? (
                               <p className="notice">
-                                Prévia do site: o envio está desativado.
+                                {t("Prévia do site: o envio está desativado.")}
                               </p>
                             ) : siteKey ? (
                               <SecurityCheck
@@ -944,26 +1032,29 @@ export default function Portfolio({
                               />
                             ) : (
                               <p className="error">
-                                O envio ainda está sendo configurado. Entre em
-                                contato com o estúdio.
+                                {t(
+                                  "O envio ainda está sendo configurado. Entre em contato com o estúdio.",
+                                )}
                               </p>
                             )}
                           </>
                         )}
                         {error && (
                           <p className="error notice" role="alert">
-                            {error}
+                            {errorText(error)}
                           </p>
                         )}
                         {service && (
                           <div className="estimate-bar">
                             <div>
-                              <small>Estimativa inicial</small>
-                              <strong>{money(indicative)}</strong>
+                              <small>{t("Estimativa inicial")}</small>
+                              <strong>
+                                {money(indicative, currency, locale)}
+                              </strong>
                             </div>
                             <span>
-                              O artista confirma
-                              <br />o orçamento final.
+                              {t("O artista confirma")} <br />
+                              {t("o orçamento final.")}
                             </span>
                           </div>
                         )}
@@ -978,7 +1069,7 @@ export default function Portfolio({
                                 setError("");
                               }}
                             >
-                              <ChevronLeft size={17} /> Voltar
+                              <ChevronLeft size={17} /> {t("Voltar")}
                             </button>
                           )}
                           <button
@@ -989,10 +1080,10 @@ export default function Portfolio({
                             }
                           >
                             {busy
-                              ? "Enviando…"
+                              ? t("Enviando…")
                               : step === 2
-                                ? "Enviar minha ideia"
-                                : "Continuar"}
+                                ? t("Enviar minha ideia")
+                                : t("Continuar")}
                             <ArrowRight size={17} />
                           </button>
                         </div>
@@ -1006,9 +1097,10 @@ export default function Portfolio({
         )}
       </main>
       <footer className="public-footer">
-        <span>Desenvolvido por Nexus Web Dev</span>
+        <span>{t("Desenvolvido por Nexus Web Dev")}</span>
         <a href="/admin">
-          Área do artista <ArrowUpRight size={14} />
+          {t("Área do artista")}
+          <ArrowUpRight size={14} />
         </a>
       </footer>
       {zoom !== null && works[zoom] && (
@@ -1023,7 +1115,7 @@ export default function Portfolio({
           <button
             className="lightbox-close"
             onClick={() => setZoom(null)}
-            aria-label="Fechar imagem"
+            aria-label={t("Fechar imagem")}
             autoFocus
           >
             <X />
@@ -1033,7 +1125,7 @@ export default function Portfolio({
               event.stopPropagation();
               setZoom((zoom + works.length - 1) % works.length);
             }}
-            aria-label="Imagem anterior"
+            aria-label={t("Imagem anterior")}
           >
             <ChevronLeft />
           </button>
@@ -1049,12 +1141,49 @@ export default function Portfolio({
               event.stopPropagation();
               setZoom((zoom + 1) % works.length);
             }}
-            aria-label="Próxima imagem"
+            aria-label={t("Próxima imagem")}
           >
             <ChevronRight />
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+export default function Portfolio(
+  props: Omit<Parameters<typeof PortfolioContent>[0], "onLanguageChange"> & {
+    initialLocale?: Locale;
+  },
+) {
+  const [locale, setLocale] = useState<Locale>(
+    () =>
+      props.initialLocale ||
+      (props.preview || typeof document === "undefined"
+        ? "pt-BR"
+        : hostLanguage(window.location.hostname) || readLanguage(document.cookie)),
+  );
+  useEffect(() => {
+    if (!props.preview) document.documentElement.lang = locale;
+  }, [locale, props.preview]);
+  function changeLanguage(next: Locale) {
+    if (!props.preview) {
+      const destination = languageDestination(window.location.href, next);
+      if (destination && destination !== window.location.href) {
+        window.location.assign(destination);
+        return;
+      }
+    }
+    setLocale(next);
+    if (!props.preview)
+      document.cookie = languageCookie(
+        next,
+        window.location.protocol === "https:",
+      );
+  }
+  return (
+    <LanguageProvider locale={locale}>
+      <PortfolioContent {...props} onLanguageChange={changeLanguage} />
+    </LanguageProvider>
   );
 }

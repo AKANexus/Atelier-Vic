@@ -25,6 +25,7 @@ const answersSchema = z.record(
   z.union([z.string().max(3000), z.array(z.string().uuid()).max(30)]),
 );
 const estimateSchema = z.object({
+  locale: z.enum(["pt-BR", "en-US"]).default("pt-BR"),
   serviceId: z.string().uuid(),
   version: z.number().int(),
   answers: answersSchema,
@@ -74,7 +75,7 @@ function estimate(config: Config, data: z.infer<typeof estimateSchema>) {
   if (!service)
     throw new HttpError(400, "O serviço selecionado não está disponível.");
   try {
-    return { service, result: quote(service, data.answers) };
+    return { service, result: quote(service, data.answers, true, data.locale) };
   } catch (error) {
     throw new HttpError(
       400,
@@ -544,6 +545,9 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         const submission = data as z.infer<typeof submissionSchema>;
         fingerprint = await hash(
           JSON.stringify({
+            ...(submission.locale === "en-US"
+              ? { locale: submission.locale }
+              : {}),
             name: submission.name,
             email: submission.email,
             phone: submission.phone,
@@ -559,17 +563,28 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
           }),
         );
         const previous = await env.DB.prepare(
-          "SELECT id,fingerprint,estimate FROM leads WHERE idempotency_key=?",
+          "SELECT id,fingerprint,estimate,currency,locale FROM leads WHERE idempotency_key=?",
         )
           .bind(submission.key)
-          .first<{ id: string; fingerprint: string; estimate: number }>();
+          .first<{
+            id: string;
+            fingerprint: string;
+            estimate: number;
+            currency: string;
+            locale: string;
+          }>();
         if (previous) {
           if (previous.fingerprint !== fingerprint)
             throw new HttpError(
               409,
               "Este envio já foi usado para outro pedido. Recarregue para iniciar um novo.",
             );
-          return json({ id: previous.id, estimate: previous.estimate });
+          return json({
+            id: previous.id,
+            estimate: previous.estimate,
+            currency: previous.currency,
+            locale: previous.locale,
+          });
         }
       }
       const config = await publicConfig(env);
@@ -592,7 +607,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       const now = new Date().toISOString();
       const statements = [
         env.DB.prepare(
-          "INSERT INTO leads(id,idempotency_key,fingerprint,name,email,phone,request,reference_links,service_name,config_version,estimate,manual_review,snapshot,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO leads(id,idempotency_key,fingerprint,name,email,phone,request,reference_links,service_name,config_version,estimate,manual_review,snapshot,created_at,updated_at,locale,currency) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         ).bind(
           id,
           submission.key,
@@ -609,6 +624,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
           JSON.stringify(result),
           now,
           now,
+          submission.locale,
+          result.currency,
         ),
         env.DB.prepare(
           "INSERT INTO history(id,lead_id,actor,message,created_at) VALUES(?,?,?,?,?)",
@@ -630,15 +647,34 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         await env.DB.batch(statements);
       } catch (error) {
         const duplicate = await env.DB.prepare(
-          "SELECT id,fingerprint FROM leads WHERE idempotency_key=?",
+          "SELECT id,fingerprint,estimate,currency,locale FROM leads WHERE idempotency_key=?",
         )
           .bind(submission.key)
-          .first<{ id: string; fingerprint: string }>();
+          .first<{
+            id: string;
+            fingerprint: string;
+            estimate: number;
+            currency: string;
+            locale: string;
+          }>();
         if (duplicate?.fingerprint === fingerprint)
-          return json({ id: duplicate.id, estimate: result.total });
+          return json({
+            id: duplicate.id,
+            estimate: duplicate.estimate,
+            currency: duplicate.currency,
+            locale: duplicate.locale,
+          });
         throw error;
       }
-      return json({ id, estimate: result.total }, 201);
+      return json(
+        {
+          id,
+          estimate: result.total,
+          currency: result.currency,
+          locale: submission.locale,
+        },
+        201,
+      );
     }
     throw new HttpError(404, "Rota não encontrada.");
   } catch (error) {

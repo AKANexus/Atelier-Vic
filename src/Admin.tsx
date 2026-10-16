@@ -39,12 +39,14 @@ import {
 } from "./domain";
 import { compressImage } from "./images";
 import Portfolio from "./Portfolio";
+import PortfolioEditor from "./PortfolioEditor";
 import { RichTextEditor, normalizeRichText } from "./RichText";
 import ThemeEditor from "./ThemeEditor";
 import { publicThemeSchema } from "./theme";
 import type { PublicRoute } from "./publicRoutes";
 
-type Tab = "leads" | "forms" | "gallery" | "portfolio" | "settings";
+type Tab =
+  "leads" | "forms" | "gallery" | "categories" | "portfolio" | "settings";
 type Session = {
   email: string;
   local: boolean;
@@ -102,6 +104,35 @@ function Price({
         value={value / 100}
         onChange={(event) =>
           onChange(Math.round(Number(event.target.value || 0) * 100))
+        }
+      />
+    </label>
+  );
+}
+function DollarPrice({
+  value,
+  onChange,
+  label = "Preço (US$) — opcional",
+}: {
+  value: number | null | undefined;
+  onChange: (value: number | null) => void;
+  label?: string;
+}) {
+  return (
+    <label>
+      {label}
+      <input
+        type="number"
+        min="0"
+        max="1000000"
+        step="0.01"
+        value={value == null ? "" : value / 100}
+        onChange={(event) =>
+          onChange(
+            event.target.value === ""
+              ? null
+              : Math.round(Number(event.target.value) * 100),
+          )
         }
       />
     </label>
@@ -209,6 +240,50 @@ function SamplePicker({
     </details>
   );
 }
+function FormLanguageColumns({
+  portuguese,
+  english,
+  rows = 3,
+  currency = true,
+}: {
+  portuguese: ReactNode;
+  english: ReactNode;
+  rows?: number;
+  currency?: boolean;
+}) {
+  return (
+    <div className="form-language-columns">
+      <section
+        className="form-language-card"
+        data-editor-language="pt-BR"
+        aria-label={currency ? "Português — valores em reais" : "Português"}
+        style={{ gridRow: `span ${rows}` }}
+      >
+        <h3>
+          Português{" "}
+          <span className="language-code">
+            {currency ? "PT-BR · R$" : "PT-BR"}
+          </span>
+        </h3>
+        {portuguese}
+      </section>
+      <section
+        className="form-language-card"
+        data-editor-language="en-US"
+        aria-label={currency ? "Inglês — valores em dólares" : "Inglês"}
+        style={{ gridRow: `span ${rows}` }}
+      >
+        <h3>
+          Inglês{" "}
+          <span className="language-code">
+            {currency ? "EN-US · US$" : "EN-US"}
+          </span>
+        </h3>
+        {english}
+      </section>
+    </div>
+  );
+}
 function QuestionEditor({
   q,
   previous,
@@ -256,43 +331,65 @@ function QuestionEditor({
           </button>
         </div>
       </div>
-      <div className="field-row">
-        <Text
-          label="Pergunta"
-          value={q.label}
-          max={200}
-          onChange={(label) => onChange({ ...q, label })}
-        />
-        <label>
-          Tipo de resposta
-          <select
-            value={q.type}
-            onChange={(event) => {
-              const type = event.target.value as Question["type"];
-              onChange({
-                ...q,
-                type,
-                options: ["single", "multiple"].includes(type)
-                  ? q.options.length
-                    ? q.options
-                    : newQuestion().options
-                  : [],
-              });
-            }}
-          >
-            <option value="single">Escolha única</option>
-            <option value="multiple">Múltipla escolha</option>
-            <option value="short">Texto curto</option>
-            <option value="long">Texto longo</option>
-            <option value="date">Data</option>
-          </select>
-        </label>
-      </div>
-      <Text
-        label="Texto de ajuda"
-        value={q.help}
-        onChange={(help) => onChange({ ...q, help })}
+      <FormLanguageColumns
+        portuguese={
+          <>
+            <Text
+              label="Pergunta"
+              value={q.label}
+              max={200}
+              onChange={(label) => onChange({ ...q, label })}
+            />
+            <Text
+              label="Texto de ajuda"
+              value={q.help}
+              onChange={(help) => onChange({ ...q, help })}
+            />
+          </>
+        }
+        english={
+          <>
+            <Text
+              label="Pergunta"
+              value={q.en?.label || ""}
+              max={200}
+              onChange={(label) => onChange({ ...q, en: { ...q.en, label } })}
+            />
+            <Text
+              label="Texto de ajuda"
+              value={q.en?.help || ""}
+              onChange={(help) => onChange({ ...q, en: { ...q.en, help } })}
+            />
+          </>
+        }
       />
+      <h3 className="shared-fields-heading">
+        Configurações da pergunta · ambos os idiomas
+      </h3>
+      <label>
+        Tipo de resposta
+        <select
+          value={q.type}
+          onChange={(event) => {
+            const type = event.target.value as Question["type"];
+            onChange({
+              ...q,
+              type,
+              options: ["single", "multiple"].includes(type)
+                ? q.options.length
+                  ? q.options
+                  : newQuestion().options
+                : [],
+            });
+          }}
+        >
+          <option value="single">Escolha única</option>
+          <option value="multiple">Múltipla escolha</option>
+          <option value="short">Texto curto</option>
+          <option value="long">Texto longo</option>
+          <option value="date">Data</option>
+        </select>
+      </label>
       <div className="field-row">
         <Toggle
           checked={q.required}
@@ -342,35 +439,11 @@ function QuestionEditor({
         <div className="option-editors">
           {q.options.map((option, index) => (
             <div className="option-editor" key={option.id}>
-              <div className="field-row">
-                <Text
-                  label={`Opção ${index + 1}`}
-                  value={option.label}
-                  max={150}
-                  onChange={(label) =>
-                    onChange({
-                      ...q,
-                      options: q.options.map((o) =>
-                        o.id === option.id ? { ...o, label } : o,
-                      ),
-                    })
-                  }
-                />
-                <Price
-                  label="Adicional (R$)"
-                  value={option.price}
-                  onChange={(price) =>
-                    onChange({
-                      ...q,
-                      options: q.options.map((o) =>
-                        o.id === option.id ? { ...o, price } : o,
-                      ),
-                    })
-                  }
-                />
+              <div className="editor-title">
+                <strong>Opção {index + 1}</strong>
                 <button
                   className="icon-button danger"
-                  aria-label="Excluir opção"
+                  aria-label={`Excluir opção ${index + 1}`}
                   onClick={() =>
                     onChange({
                       ...q,
@@ -381,6 +454,71 @@ function QuestionEditor({
                   <Trash2 size={15} />
                 </button>
               </div>
+              <FormLanguageColumns
+                portuguese={
+                  <>
+                    <Text
+                      label="Texto da opção"
+                      value={option.label}
+                      max={150}
+                      onChange={(label) =>
+                        onChange({
+                          ...q,
+                          options: q.options.map((o) =>
+                            o.id === option.id ? { ...o, label } : o,
+                          ),
+                        })
+                      }
+                    />
+                    <Price
+                      label="Adicional (R$)"
+                      value={option.price}
+                      onChange={(price) =>
+                        onChange({
+                          ...q,
+                          options: q.options.map((o) =>
+                            o.id === option.id ? { ...o, price } : o,
+                          ),
+                        })
+                      }
+                    />
+                  </>
+                }
+                english={
+                  <>
+                    <Text
+                      label="Texto da opção"
+                      value={option.en?.label || ""}
+                      max={150}
+                      onChange={(label) =>
+                        onChange({
+                          ...q,
+                          options: q.options.map((o) =>
+                            o.id === option.id
+                              ? { ...o, en: { ...o.en, label } }
+                              : o,
+                          ),
+                        })
+                      }
+                    />
+                    <DollarPrice
+                      label="Adicional (US$) — opcional"
+                      value={option.priceUsd}
+                      onChange={(priceUsd) =>
+                        onChange({
+                          ...q,
+                          options: q.options.map((o) =>
+                            o.id === option.id ? { ...o, priceUsd } : o,
+                          ),
+                        })
+                      }
+                    />
+                  </>
+                }
+              />
+              <h4 className="shared-fields-heading">
+                Configurações da opção · ambos os idiomas
+              </h4>
               <Toggle
                 checked={option.manualReview}
                 onChange={(manualReview) =>
@@ -468,6 +606,59 @@ function ServiceEditor({
         </span>
       </summary>
       <div className="service-editor-body">
+        <section className="service-pricing">
+          <h2>Serviço & preço base</h2>
+          <p className="muted">
+            Textos em inglês são opcionais. Para usar dólares na versão inglesa,
+            preencha o preço base e todos os adicionais em US$. Caso contrário,
+            o serviço inteiro usa reais. Use 0 para opções gratuitas.
+          </p>
+          <FormLanguageColumns
+            rows={4}
+            portuguese={
+              <>
+                <Text
+                  label="Nome do serviço"
+                  value={s.name}
+                  max={100}
+                  onChange={(name) => onChange({ ...s, name })}
+                />
+                <Text
+                  label="Descrição"
+                  value={s.description}
+                  onChange={(description) => onChange({ ...s, description })}
+                />
+                <Price
+                  label="Preço base (R$)"
+                  value={s.basePrice}
+                  onChange={(basePrice) => onChange({ ...s, basePrice })}
+                />
+              </>
+            }
+            english={
+              <>
+                <Text
+                  label="Nome do serviço"
+                  value={s.en?.name || ""}
+                  max={100}
+                  onChange={(name) => onChange({ ...s, en: { ...s.en, name } })}
+                />
+                <Text
+                  label="Descrição"
+                  value={s.en?.description || ""}
+                  onChange={(description) =>
+                    onChange({ ...s, en: { ...s.en, description } })
+                  }
+                />
+                <DollarPrice
+                  label="Preço base (US$) — opcional"
+                  value={s.basePriceUsd}
+                  onChange={(basePriceUsd) => onChange({ ...s, basePriceUsd })}
+                />
+              </>
+            }
+          />
+        </section>
         <div className="service-questions">
           <h2>Perguntas do pedido</h2>
           {s.questions.map((q, index) => (
@@ -506,31 +697,6 @@ function ServiceEditor({
             </button>
           </div>
         </div>
-        <aside className="service-pricing">
-          <h2>Serviço & preço base</h2>
-          <div className="service-fields">
-            <Text
-              label="Nome do serviço"
-              value={s.name}
-              max={100}
-              onChange={(name) => onChange({ ...s, name })}
-            />
-            <Price
-              label="Preço base (R$)"
-              value={s.basePrice}
-              onChange={(basePrice) => onChange({ ...s, basePrice })}
-            />
-          </div>
-          <Text
-            label="Descrição"
-            value={s.description}
-            onChange={(description) => onChange({ ...s, description })}
-          />
-          <p className="muted">
-            A estimativa soma o preço base e os adicionais fixos de cada
-            resposta.
-          </p>
-        </aside>
       </div>
     </details>
   );
@@ -543,6 +709,9 @@ export default function Admin() {
   const [live, setLive] = useState<Config | null>(null);
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<Tab>("leads");
+  const [portfolioCategory, setPortfolioCategory] = useState<string | null>(
+    null,
+  );
   const [media, setMedia] = useState<Media[]>([]);
   const [notification, setNotification] = useState({
     attention: 0,
@@ -775,6 +944,7 @@ export default function Admin() {
     leads: "Leads & trabalhos",
     forms: "Formulários & preços",
     gallery: "Galeria",
+    categories: "Categorias",
     portfolio: "Portfólio",
     settings: "Seu estúdio, do seu jeito",
   };
@@ -798,6 +968,7 @@ export default function Admin() {
             { id: "leads", name: "Leads & trabalhos", icon: LayoutDashboard },
             { id: "forms", name: "Formulários & preços", icon: ListChecks },
             { id: "gallery", name: "Galeria", icon: Images },
+            { id: "categories", name: "Categorias", icon: ListChecks },
             { id: "portfolio", name: "Portfólio", icon: Palette },
             { id: "settings", name: "Configurações", icon: Settings },
           ].map((item) => (
@@ -846,6 +1017,18 @@ export default function Admin() {
             </div>
             {tab !== "leads" && tab !== "gallery" && (
               <div className="toolbar">
+                <button
+                  className="button ghost small"
+                  disabled={busy || !dirty || !themeValid}
+                  onClick={() =>
+                    run(async () => {
+                      await saveDraft();
+                      return "Rascunho salvo.";
+                    })
+                  }
+                >
+                  <Save size={16} /> Salvar rascunho
+                </button>
                 <button
                   className="button ghost small"
                   disabled={busy}
@@ -1030,7 +1213,10 @@ export default function Admin() {
                               </span>
                             </td>
                             <td>
-                              {money(lead.final_price ?? lead.estimate)}
+                              {money(
+                                lead.final_price ?? lead.estimate,
+                                lead.currency,
+                              )}
                               {lead.final_price !== null && (
                                 <small>Valor final</small>
                               )}
@@ -1222,29 +1408,6 @@ export default function Admin() {
                         <small>{Math.round(m.bytes / 1024)} KiB</small>
                         <div>
                           <button
-                            className="button ghost small"
-                            disabled={
-                              m.state !== "ready" ||
-                              cfg.gallery.some((g) => g.id === m.id)
-                            }
-                            onClick={() =>
-                              change({
-                                ...cfg,
-                                gallery: [
-                                  ...cfg.gallery,
-                                  {
-                                    id: m.id,
-                                    title: m.title,
-                                    description: "",
-                                    alt: m.title,
-                                  },
-                                ],
-                              })
-                            }
-                          >
-                            <Plus size={13} /> Portfólio
-                          </button>
-                          <button
                             className="icon-button danger"
                             aria-label={`Excluir ${m.title}`}
                             onClick={() => {
@@ -1278,167 +1441,189 @@ export default function Admin() {
                 </section>
               </>
             )}
-            {tab === "portfolio" && (
-              <>
-                <section className="panel category-editor">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Categorias do portfólio</h2>
-                      <p>
-                        Organize suas obras e escolha uma capa para cada
-                        categoria.
-                      </p>
-                    </div>
-                    <button
-                      className="button ghost small"
-                      onClick={() =>
-                        change({
-                          ...cfg,
-                          categories: [
-                            ...cfg.categories,
-                            {
-                              id: crypto.randomUUID(),
-                              name: "Nova categoria",
-                              coverImageId: null,
-                              serviceId: null,
-                            },
-                          ],
-                        })
-                      }
-                      disabled={cfg.categories.length >= 100}
-                    >
-                      <Plus size={16} />
-                      Adicionar categoria
-                    </button>
+            {tab === "categories" && (
+              <section className="panel category-editor">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Categorias do portfólio</h2>
+                    <p>
+                      Organize suas obras e escolha uma capa para cada
+                      categoria.
+                    </p>
                   </div>
-                  {cfg.categories.map((category, index) => (
-                    <div className="category-editor-row" key={category.id}>
-                      <Text
-                        label="Nome da categoria"
-                        value={category.name}
-                        max={100}
-                        onChange={(name) =>
-                          change({
-                            ...cfg,
-                            categories: cfg.categories.map((item) =>
-                              item.id === category.id
-                                ? { ...item, name }
-                                : item,
-                            ),
-                          })
-                        }
-                      />
-                      <label>
-                        Capa da categoria
-                        <select
-                          value={category.coverImageId || ""}
-                          onChange={(event) =>
+                  <button
+                    className="button ghost small"
+                    onClick={() =>
+                      change({
+                        ...cfg,
+                        categories: [
+                          ...cfg.categories,
+                          {
+                            id: crypto.randomUUID(),
+                            name: "Nova categoria",
+                            coverImageId: null,
+                            serviceId: null,
+                          },
+                        ],
+                      })
+                    }
+                    disabled={cfg.categories.length >= 100}
+                  >
+                    <Plus size={16} />
+                    Adicionar categoria
+                  </button>
+                </div>
+                {cfg.categories.map((category, index) => (
+                  <div className="category-editor-row" key={category.id}>
+                    <FormLanguageColumns
+                      rows={2}
+                      currency={false}
+                      portuguese={
+                        <Text
+                          label="Nome da categoria"
+                          value={category.name}
+                          max={100}
+                          onChange={(name) =>
                             change({
                               ...cfg,
                               categories: cfg.categories.map((item) =>
                                 item.id === category.id
-                                  ? {
-                                      ...item,
-                                      coverImageId: event.target.value || null,
-                                    }
+                                  ? { ...item, name }
                                   : item,
                               ),
                             })
                           }
-                        >
-                          <option value="">Primeira obra da categoria</option>
-                          {cfg.gallery
-                            .filter((art) => art.categoryId === category.id)
-                            .map((art) => (
-                              <option key={art.id} value={art.id}>
-                                {art.title}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      {category.coverImageId && (
-                        <img
-                          className="category-cover-preview"
-                          src={`/api/admin/media/${category.coverImageId}?size=thumbnail`}
-                          alt={`Capa de ${category.name}`}
                         />
-                      )}
-                      <div className="form-actions">
-                        <button
-                          className="icon-button"
-                          aria-label={`Mover ${category.name} para cima`}
-                          disabled={!index}
-                          onClick={() => {
-                            const categories = [...cfg.categories];
-                            [categories[index - 1], categories[index]] = [
-                              categories[index],
-                              categories[index - 1],
-                            ];
-                            change({ ...cfg, categories });
-                          }}
-                        >
-                          <ArrowUp size={16} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          aria-label={`Mover ${category.name} para baixo`}
-                          disabled={index === cfg.categories.length - 1}
-                          onClick={() => {
-                            const categories = [...cfg.categories];
-                            [categories[index + 1], categories[index]] = [
-                              categories[index],
-                              categories[index + 1],
-                            ];
-                            change({ ...cfg, categories });
-                          }}
-                        >
-                          <ArrowDown size={16} />
-                        </button>
-                        <button
-                          className="icon-button danger"
-                          aria-label={`Excluir categoria ${category.name}`}
-                          onClick={() =>
+                      }
+                      english={
+                        <Text
+                          label="Nome da categoria"
+                          value={category.en?.name || ""}
+                          max={100}
+                          onChange={(name) =>
                             change({
                               ...cfg,
-                              categories: cfg.categories.filter(
-                                (item) => item.id !== category.id,
-                              ),
-                              gallery: cfg.gallery.map((art) =>
-                                art.categoryId === category.id
-                                  ? { ...art, categoryId: null }
-                                  : art,
+                              categories: cfg.categories.map((item) =>
+                                item.id === category.id
+                                  ? { ...item, en: { ...item.en, name } }
+                                  : item,
                               ),
                             })
                           }
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {!cfg.categories.length && (
-                    <p className="muted">
-                      As obras sem categoria aparecem em Outros trabalhos.
-                    </p>
-                  )}
-                </section>
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <h2>Portfólio público</h2>
-                      <p>
-                        Escolha a categoria de cada obra e organize a ordem dos
-                        trabalhos.
-                      </p>
+                        />
+                      }
+                    />
+                    <h3 className="shared-fields-heading">
+                      Capa e organização · ambos os idiomas
+                    </h3>
+                    <label>
+                      Capa da categoria
+                      <select
+                        value={category.coverImageId || ""}
+                        onChange={(event) =>
+                          change({
+                            ...cfg,
+                            categories: cfg.categories.map((item) =>
+                              item.id === category.id
+                                ? {
+                                    ...item,
+                                    coverImageId: event.target.value || null,
+                                  }
+                                : item,
+                            ),
+                          })
+                        }
+                      >
+                        <option value="">Primeira obra da categoria</option>
+                        {cfg.gallery
+                          .filter((art) => art.categoryId === category.id)
+                          .map((art) => (
+                            <option key={art.id} value={art.id}>
+                              {art.title}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    {category.coverImageId && (
+                      <img
+                        className="category-cover-preview"
+                        src={`/api/admin/media/${category.coverImageId}?size=thumbnail`}
+                        alt={`Capa de ${category.name}`}
+                      />
+                    )}
+                    <div className="form-actions">
+                      <button
+                        className="icon-button"
+                        aria-label={`Mover ${category.name} para cima`}
+                        disabled={!index}
+                        onClick={() => {
+                          const categories = [...cfg.categories];
+                          [categories[index - 1], categories[index]] = [
+                            categories[index],
+                            categories[index - 1],
+                          ];
+                          change({ ...cfg, categories });
+                        }}
+                      >
+                        <ArrowUp size={16} />
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Mover ${category.name} para baixo`}
+                        disabled={index === cfg.categories.length - 1}
+                        onClick={() => {
+                          const categories = [...cfg.categories];
+                          [categories[index + 1], categories[index]] = [
+                            categories[index],
+                            categories[index + 1],
+                          ];
+                          change({ ...cfg, categories });
+                        }}
+                      >
+                        <ArrowDown size={16} />
+                      </button>
+                      <button
+                        className="icon-button danger"
+                        aria-label={`Excluir categoria ${category.name}`}
+                        onClick={() =>
+                          change({
+                            ...cfg,
+                            categories: cfg.categories.filter(
+                              (item) => item.id !== category.id,
+                            ),
+                            gallery: cfg.gallery.map((art) =>
+                              art.categoryId === category.id
+                                ? { ...art, categoryId: null }
+                                : art,
+                            ),
+                          })
+                        }
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
-                  {cfg.gallery.map((g, index) => (
-                    <div className="gallery-editor" key={g.id}>
-                      <img
-                        src={`/api/admin/media/${g.id}?size=thumbnail`}
-                        alt={g.alt}
-                      />
-                      <div>
+                ))}
+                {!cfg.categories.length && (
+                  <p className="muted">
+                    As obras sem categoria aparecem em Outros trabalhos.
+                  </p>
+                )}
+              </section>
+            )}
+            {tab === "portfolio" && (
+              <PortfolioEditor
+                cfg={cfg}
+                media={media}
+                change={change}
+                selectedCategory={portfolioCategory}
+                selectCategory={setPortfolioCategory}
+                renderFields={(g) => (
+                  <FormLanguageColumns
+                    rows={4}
+                    currency={false}
+                    portuguese={
+                      <>
                         <Text
                           label="Título"
                           value={g.title}
@@ -1466,38 +1651,6 @@ export default function Admin() {
                             })
                           }
                         />
-                        <label>
-                          Categoria
-                          <select
-                            value={g.categoryId || ""}
-                            onChange={(event) =>
-                              change({
-                                ...cfg,
-                                gallery: cfg.gallery.map((item) =>
-                                  item.id === g.id
-                                    ? {
-                                        ...item,
-                                        categoryId: event.target.value || null,
-                                      }
-                                    : item,
-                                ),
-                                categories: cfg.categories.map((category) =>
-                                  category.coverImageId === g.id &&
-                                  category.id !== event.target.value
-                                    ? { ...category, coverImageId: null }
-                                    : category,
-                                ),
-                              })
-                            }
-                          >
-                            <option value="">Outros trabalhos</option>
-                            {cfg.categories.map((category) => (
-                              <option key={category.id} value={category.id}>
-                                {category.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
                         <Text
                           label="Descrição acessível da imagem"
                           value={g.alt}
@@ -1511,125 +1664,203 @@ export default function Admin() {
                             })
                           }
                         />
-                      </div>
-                      <div className="vertical-actions">
-                        <button
-                          className="icon-button"
-                          disabled={!index}
-                          aria-label="Mover trabalho para cima"
-                          onClick={() => {
-                            const gallery = [...cfg.gallery];
-                            [gallery[index], gallery[index - 1]] = [
-                              gallery[index - 1],
-                              gallery[index],
-                            ];
-                            change({ ...cfg, gallery });
-                          }}
-                        >
-                          <ArrowUp size={16} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          disabled={index === cfg.gallery.length - 1}
-                          aria-label="Mover trabalho para baixo"
-                          onClick={() => {
-                            const gallery = [...cfg.gallery];
-                            [gallery[index], gallery[index + 1]] = [
-                              gallery[index + 1],
-                              gallery[index],
-                            ];
-                            change({ ...cfg, gallery });
-                          }}
-                        >
-                          <ArrowDown size={16} />
-                        </button>
-                        <button
-                          className="icon-button danger"
-                          aria-label="Remover do portfólio"
-                          onClick={() =>
+                      </>
+                    }
+                    english={
+                      <>
+                        <Text
+                          label="Título"
+                          value={g.en?.title || ""}
+                          max={150}
+                          onChange={(title) =>
                             change({
                               ...cfg,
-                              featuredArtIds: cfg.featuredArtIds.filter(
-                                (id) => id !== g.id,
-                              ),
-                              gallery: cfg.gallery.filter(
-                                (item) => item.id !== g.id,
-                              ),
-                              categories: cfg.categories.map((category) =>
-                                category.coverImageId === g.id
-                                  ? { ...category, coverImageId: null }
-                                  : category,
+                              gallery: cfg.gallery.map((item) =>
+                                item.id === g.id
+                                  ? { ...item, en: { ...item.en, title } }
+                                  : item,
                               ),
                             })
                           }
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {!cfg.gallery.length && (
-                    <p className="muted">
-                      Adicione imagens da Galeria ao portfólio.
-                    </p>
-                  )}
-                </section>
-              </>
+                        />
+                        <Text
+                          label="Descrição"
+                          value={g.en?.description || ""}
+                          onChange={(description) =>
+                            change({
+                              ...cfg,
+                              gallery: cfg.gallery.map((item) =>
+                                item.id === g.id
+                                  ? {
+                                      ...item,
+                                      en: { ...item.en, description },
+                                    }
+                                  : item,
+                              ),
+                            })
+                          }
+                        />
+                        <Text
+                          label="Descrição acessível da imagem"
+                          value={g.en?.alt || ""}
+                          max={200}
+                          onChange={(alt) =>
+                            change({
+                              ...cfg,
+                              gallery: cfg.gallery.map((item) =>
+                                item.id === g.id
+                                  ? { ...item, en: { ...item.en, alt } }
+                                  : item,
+                              ),
+                            })
+                          }
+                        />
+                      </>
+                    }
+                  />
+                )}
+              />
             )}
             {tab === "settings" && (
               <div className="settings-grid">
-                <section className="panel">
-                  <h2>Apresentação</h2>
-                  <Text
-                    label="Nome do artista"
-                    value={cfg.brand}
-                    max={100}
-                    onChange={(brand) => change({ ...cfg, brand })}
-                  />
-                  <Text
-                    label="Especialidade / título"
-                    value={cfg.headline}
-                    max={180}
-                    onChange={(headline) => change({ ...cfg, headline })}
-                  />
-                  <Text
-                    label="Apresentação curta"
-                    multiline
-                    value={cfg.intro}
-                    max={1000}
-                    onChange={(intro) => change({ ...cfg, intro })}
-                  />
-                </section>
-                <section className="panel presentation-copy-settings">
-                  <h2>Textos do site</h2>
-                  <Text
-                    label="Título do portfólio"
-                    value={cfg.portfolioTitle}
-                    max={180}
-                    onChange={(portfolioTitle) =>
-                      change({ ...cfg, portfolioTitle })
+                <div className="bilingual-settings">
+                  {(["pt-BR", "en-US"] as const).map((locale) => {
+                    const english = locale === "en-US";
+                    const copy = english ? cfg.en : cfg;
+                    const language = english ? "Inglês" : "Português";
+                    function updateCopy(
+                      field:
+                        | "brand"
+                        | "headline"
+                        | "intro"
+                        | "carouselLabel"
+                        | "portfolioTitle"
+                        | "portfolioSubtitle"
+                        | "privacy",
+                      value: string,
+                    ) {
+                      change(
+                        english
+                          ? { ...cfg, en: { ...cfg.en, [field]: value } }
+                          : { ...cfg, [field]: value },
+                      );
                     }
-                  />
-                  <Text
-                    label="Subtítulo do portfólio (opcional)"
-                    value={cfg.portfolioSubtitle}
-                    max={300}
-                    onChange={(portfolioSubtitle) =>
-                      change({ ...cfg, portfolioSubtitle })
-                    }
-                  />
-                </section>
+                    return (
+                      <section
+                        className="panel language-settings-card"
+                        data-editor-language={locale}
+                        key={locale}
+                        aria-label={`Configuração em ${language.toLowerCase()}`}
+                      >
+                        <h2>
+                          {language}{" "}
+                          <span className="language-code">
+                            {english ? "EN-US" : "PT-BR"}
+                          </span>
+                        </h2>
+                        <h3>Apresentação</h3>
+                        <Text
+                          label="Nome do artista"
+                          value={copy?.brand || ""}
+                          max={100}
+                          onChange={(value) => updateCopy("brand", value)}
+                        />
+                        <Text
+                          label="Especialidade / título"
+                          value={copy?.headline || ""}
+                          max={180}
+                          onChange={(value) => updateCopy("headline", value)}
+                        />
+                        <Text
+                          label="Apresentação curta"
+                          value={copy?.intro || ""}
+                          multiline
+                          max={1000}
+                          onChange={(value) => updateCopy("intro", value)}
+                        />
+                        <h3>Textos do site</h3>
+                        <Text
+                          label="Rótulo dos destaques"
+                          value={copy?.carouselLabel || ""}
+                          max={100}
+                          onChange={(value) =>
+                            updateCopy("carouselLabel", value)
+                          }
+                        />
+                        <Text
+                          label="Título do portfólio"
+                          value={copy?.portfolioTitle || ""}
+                          max={180}
+                          onChange={(value) =>
+                            updateCopy("portfolioTitle", value)
+                          }
+                        />
+                        <Text
+                          label="Subtítulo do portfólio (opcional)"
+                          value={copy?.portfolioSubtitle || ""}
+                          max={300}
+                          onChange={(value) =>
+                            updateCopy("portfolioSubtitle", value)
+                          }
+                        />
+                        <h3>Uso dos dados do pedido</h3>
+                        <Text
+                          label="Texto apresentado antes do envio"
+                          value={copy?.privacy || ""}
+                          multiline
+                          max={3000}
+                          onChange={(value) => updateCopy("privacy", value)}
+                        />
+                        <p className="muted">
+                          {english
+                            ? "Traduções opcionais. Campos vazios usam o conteúdo em português."
+                            : "Revise o uso e a conservação dos dados. Exclusões e exportações ficam disponíveis nos pedidos."}
+                        </p>
+                      </section>
+                    );
+                  })}
+                </div>
                 <section className="panel artist-about-settings">
                   <h2>Sobre o artista</h2>
-                  <RichTextEditor
-                    label="Sobre o artista"
-                    value={normalizeRichText(cfg.artistBio)}
-                    disabled={busy}
-                    onChange={(artistBio) => change({ ...cfg, artistBio })}
-                  />
-                  <p className="muted">
-                    Opcional. Sem biografia, o site usa sua apresentação curta.
-                  </p>
+                  <div className="language-editors">
+                    <section
+                      data-editor-language="pt-BR"
+                      aria-label="Biografia em português"
+                    >
+                      <h3>
+                        Português <span className="language-code">PT-BR</span>
+                      </h3>
+                      <RichTextEditor
+                        label="Sobre o artista — Português"
+                        value={normalizeRichText(cfg.artistBio)}
+                        disabled={busy}
+                        onChange={(artistBio) => change({ ...cfg, artistBio })}
+                      />
+                      <p className="muted">
+                        Opcional. Sem biografia, o site usa sua apresentação
+                        curta.
+                      </p>
+                    </section>
+                    <section
+                      data-editor-language="en-US"
+                      aria-label="Biografia em inglês"
+                    >
+                      <h3>
+                        Inglês <span className="language-code">EN-US</span>
+                      </h3>
+                      <RichTextEditor
+                        label="Sobre o artista — Inglês"
+                        value={normalizeRichText(cfg.en?.artistBio || "")}
+                        disabled={busy}
+                        onChange={(artistBio) =>
+                          change({ ...cfg, en: { ...cfg.en, artistBio } })
+                        }
+                      />
+                      <p className="muted">
+                        Opcional. Se vazio, o site usa a biografia em português.
+                      </p>
+                    </section>
+                  </div>
                 </section>
                 <ThemeEditor
                   value={cfg.publicTheme}
@@ -1656,6 +1887,14 @@ export default function Admin() {
                     max={200}
                     onChange={(mainImageAlt) =>
                       change({ ...cfg, mainImageAlt })
+                    }
+                  />
+                  <Text
+                    label="Descrição acessível do banner — Inglês"
+                    value={cfg.en?.mainImageAlt || ""}
+                    max={200}
+                    onChange={(mainImageAlt) =>
+                      change({ ...cfg, en: { ...cfg.en, mainImageAlt } })
                     }
                   />
                   <p className="muted">
@@ -1719,15 +1958,45 @@ export default function Admin() {
                 </section>
                 <section className="panel process-settings">
                   <h2>Como entrar em contato</h2>
-                  <RichTextEditor
-                    value={cfg.processContent}
-                    label="Como entrar em contato"
-                    templates={["contato"]}
-                    disabled={busy}
-                    onChange={(processContent) =>
-                      change({ ...cfg, processContent })
-                    }
-                  />
+                  <div className="language-editors">
+                    <section
+                      data-editor-language="pt-BR"
+                      aria-label="Como entrar em contato em português"
+                    >
+                      <h3>
+                        Português <span className="language-code">PT-BR</span>
+                      </h3>
+                      <RichTextEditor
+                        label="Como entrar em contato — Português"
+                        value={cfg.processContent}
+                        templates={["contato"]}
+                        disabled={busy}
+                        onChange={(processContent) =>
+                          change({ ...cfg, processContent })
+                        }
+                      />
+                    </section>
+                    <section
+                      data-editor-language="en-US"
+                      aria-label="Como entrar em contato em inglês"
+                    >
+                      <h3>
+                        Inglês <span className="language-code">EN-US</span>
+                      </h3>
+                      <RichTextEditor
+                        label="Como entrar em contato — Inglês"
+                        value={cfg.en?.processContent || []}
+                        templates={["contato"]}
+                        disabled={busy}
+                        onChange={(processContent) =>
+                          change({ ...cfg, en: { ...cfg.en, processContent } })
+                        }
+                      />
+                      <p className="muted">
+                        Opcional. Se vazio, o site usa o texto em português.
+                      </p>
+                    </section>
+                  </div>
                 </section>
                 <section className="panel">
                   <h2>Contato</h2>
@@ -1744,27 +2013,15 @@ export default function Admin() {
                     onChange={(whatsapp) => change({ ...cfg, whatsapp })}
                   />
                 </section>
-                <section className="panel privacy-settings">
-                  <h2>Uso dos dados do pedido</h2>
-                  <Text
-                    label="Texto apresentado antes do envio"
-                    multiline
-                    max={3000}
-                    value={cfg.privacy}
-                    onChange={(privacy) => change({ ...cfg, privacy })}
-                  />
-                  <p className="muted">
-                    Revise esse texto para refletir como você usa e conserva os
-                    dados. Exclusões e exportações ficam disponíveis nos
-                    pedidos.
-                  </p>
-                </section>
               </div>
             )}
           </fieldset>
           <footer className="admin-footer">
             <span>Desenvolvido por Nexus Web Dev</span>
-            <small>Valores em BRL · Horários no fuso do seu navegador</small>
+            <small>
+              Valores na moeda de cada pedido · Horários no fuso do seu
+              navegador
+            </small>
           </footer>
         </main>
       </div>
@@ -1813,7 +2070,11 @@ export default function Admin() {
               <div className="detail-summary">
                 <div>
                   <small>{detail.service_name}</small>
-                  <strong>{money(detail.estimate)}</strong>
+                  <strong>{money(detail.estimate, detail.currency)}</strong>
+                  <small>
+                    Idioma: {detail.locale === "en-US" ? "Inglês" : "Português"}{" "}
+                    · Moeda: {detail.currency || "BRL"}
+                  </small>
                 </div>
                 <div>
                   <small>Recebido em</small>
@@ -1860,7 +2121,7 @@ export default function Admin() {
                 {detail.snapshot.breakdown.map((item, index) => (
                   <p key={index}>
                     <span>{item.label}</span>
-                    <strong>{money(item.cents)}</strong>
+                    <strong>{money(item.cents, detail.currency)}</strong>
                   </p>
                 ))}
               </details>
@@ -1884,7 +2145,8 @@ export default function Admin() {
                   </select>
                 </label>
                 <label>
-                  Preço final combinado (R$)
+                  Preço final combinado (
+                  {detail.currency === "USD" ? "US$" : "R$"})
                   <input
                     type="number"
                     min="0"

@@ -44,17 +44,16 @@ Para uma instalação independente, copie `wrangler.example.jsonc` para `wrangle
 2. Autorize o app **Cloudflare Workers and Pages** no GitHub apenas para `AKANexus/Atelier-Vic`.
 3. Crie em **Storage & databases → D1** os bancos `victor-quote-production` e `victor-quote-preview`.
 4. Crie em **Storage & databases → KV** os namespaces `victor-art-production` e `victor-art-preview`.
-5. Atualize os IDs em `wrangler.jsonc`, mantendo produção e preview separados. IDs de recursos não são credenciais.
+5. Nesta instalação, `env.preview` usa o mesmo D1 e KV de produção para o artista operar o painel beta com dados reais. Os recursos separados de preview ficam disponíveis para testes isolados com configuração própria. IDs de recursos não são credenciais.
 6. Autentique o Wrangler com `npx wrangler login`. Complete pessoalmente a autenticação e a autorização no navegador.
 7. Aplique as migrações antes de abrir o site:
 
 ```powershell
 npm run db:production
-npx wrangler d1 migrations apply DB --remote --env preview
 ```
 
 8. Em **Workers & Pages → Create application → Continue to Pages → Import an existing Git repository**, selecione o repositório. Configuração: nome `victor-quote-manager`, branch `master`, preset **Vite**, comando `npm run build`, saída `dist`, diretório raiz do repositório. Use `NODE_VERSION=24`.
-9. Confira que produção usa o banco e KV de produção; prévias usam os recursos de preview. Se o painel importar os bindings do Wrangler, não cadastre bindings duplicados.
+9. Confira que produção e Preview usam o banco e KV de produção, mantendo os AUDs de Access distintos. Se o painel importar os bindings do Wrangler, não cadastre bindings duplicados.
 10. Em **Settings → Runtime → Fail open / closed**, escolha **Fail closed**.
 11. Configure Access e Turnstile abaixo. A API administrativa nega acesso enquanto a configuração estiver incompleta. A agenda começa fechada e o portfólio vazio.
 
@@ -73,7 +72,7 @@ Política **Allow**: apenas os dois e-mails fornecidos pelo responsável. Autent
 | `ADMIN_EMAILS`       | E-mails permitidos, separados por vírgula; use um segredo para manter a configuração privada |
 | `EMAIL_ENABLED`      | `false` até configurar o domínio e testar as notificações                                    |
 
-Teste produção, URLs de deployment e preview: nenhuma rota administrativa deve expor dados sem JWT válido, AUD correto e e-mail permitido. A verificação no servidor protege mesmo hostnames esquecidos na configuração do Access. Confirme que a página pública abre em janela anônima. Use o hostname estável de produção para administrar produção: aliases de deployment são protegidos pela aplicação de preview, cujo AUD diferente é rejeitado pela API de produção. Branches de preview usam o AUD e os recursos de preview.
+Teste produção, URLs de deployment e preview: nenhuma rota administrativa deve expor dados sem JWT válido, AUD correto e e-mail permitido. A verificação no servidor protege mesmo hostnames esquecidos na configuração do Access. Confirme que a página pública abre em janela anônima. Use o hostname estável de produção para administrar produção: aliases de deployment são protegidos pela aplicação de preview, cujo AUD diferente é rejeitado pela API de produção. Branches de preview usam seu próprio AUD e compartilham os recursos de produção.
 
 ### Turnstile
 
@@ -119,8 +118,8 @@ O Worker não tem endpoint público. Um cron de cinco em cinco minutos envia not
 
 ## Releases e manutenção
 
-- Código: execute `npm test` e `npm run build` antes de enviar para `master`. Commits nessa branch fazem deploy de produção. Branches internas geram previews; não use dados reais nas prévias. Revise dependências e atualizações mensalmente.
-- Banco: use novas migrações compatíveis com a versão atual. Faça backup e aplique em preview primeiro. Publicar código não aplica migrações automaticamente. Só libere mudanças que dependam do banco depois da migração.
+- Código: execute `npm test` e `npm run build` antes de enviar para `master`. Commits nessa branch fazem deploy de produção. O branch `preview` publica a beta com dados reais de produção, sem substituir o código do branch `master`. Não execute testes que gravem dados fictícios nesse ambiente. Revise dependências e atualizações mensalmente.
+- Banco: use novas migrações compatíveis com a versão atual. Faça backup e valide em um banco isolado primeiro. `--env preview` aponta para produção e não é um ensaio isolado. Publicar código não aplica migrações automaticamente. Só libere mudanças que dependam do banco depois da migração.
 - Rollback: em Pages → Deployments, restaure o último deployment conhecido. O rollback de código não desfaz banco, perguntas ou preços; use backup/Time Travel quando necessário. Antes de restaurar, registre alterações e interrompa novos pedidos de modo controlado.
 - Cotas: verifique Workers, D1 e KV mensalmente e após campanhas. Requests estáticos não invocam Functions. Quotas dinâmicas esgotadas resultam em erros, não upgrade automático. D1 Free permite 500 MB por banco e Time Travel de 7 dias; exportações independentes são necessárias.
 - Dados: escolha com o artista uma política de retenção apropriada. Exporte e exclua registros antigos deliberadamente. Não grave contatos, pedidos, tokens ou segredos em logs.
@@ -136,19 +135,21 @@ npm run backup
 
 O script salva SQL, imagens e manifesto em `backups/`, que não entra no Git. Precisa do Wrangler autenticado e IDs corretos de produção. Guarde cópia adicional em armazenamento privado e protegido, fora do computador de trabalho. Essa cópia local não cria despesa de armazenamento Cloudflare.
 
-Para ensaiar restauração, use um banco de preview novo/vazio e um namespace KV de preview vazio, sem alterar produção:
+Para ensaiar restauração, prepare uma configuração local separada com um D1 e um KV novos/vazios. Passe essa configuração explicitamente com `--config` em todos os comandos de restauração. Não use `--env preview`: nesta instalação ele aponta para os dados reais de produção.
 
-```powershell
-npx wrangler d1 execute DB --remote --env preview --file backups/PASTA/database.sql
-npx wrangler kv key put "ID/image" --binding MEDIA --remote --env preview --path backups/PASTA/media/ID_image.webp
-npx wrangler kv key put "ID/thumbnail" --binding MEDIA --remote --env preview --path backups/PASTA/media/ID_thumbnail.webp
-```
+Confira contagem de pedidos, histórico, versão publicada, imagens, preços e acesso no ambiente isolado. Mantenha e-mails desativados. O backup contém dados pessoais: nunca coloque a pasta no Git ou em uma URL pública.
 
-Repita os dois comandos de mídia para cada chave do manifesto. Confira contagem de pedidos, histórico, versão publicada, imagens, preços e acesso no preview. Mantenha e-mails desativados. O backup contém dados pessoais: nunca coloque a pasta no Git ou em uma URL pública.
+### Beta com dados de produção
+
+- Endereço estável: `https://preview.victor-quote-manager.pages.dev`; painel em `/admin`. O Access de Preview permanece ativo.
+- D1 (`DB`) e imagens (`MEDIA`) são compartilhados. Salvar rascunhos, publicar conteúdo, alterar pedidos ou excluir arquivos no beta altera dados reais. Publicar conteúdo no painel não altera o código de produção.
+- O override `env.preview` vale para o ambiente Preview do Pages, não apenas para um branch. Outros branches de teste precisam de projeto/configuração isolados para não operar sobre produção.
+- O rodapé fixo amarelo e preto identifica as builds Preview nas páginas públicas e administrativas. Builds Git detectam `CF_PAGES_BRANCH`; `master` não exibe o aviso. Para testar localmente ou fazer upload direto da beta, execute o build com `VITE_PREVIEW=true` e faça deploy explicitamente com `--branch preview`.
+- E-mails automáticos continuam desativados no Preview (`EMAIL_ENABLED=false`), conforme a configuração existente.
 
 ## Validação
 
-`npm test` cobre preços, respostas inválidas, condicionais e preservação de snapshots. Antes de lançamento, verifique no preview o fluxo de lead completo, retry sem duplicação, uploads, publicação, todos os status, atenção, exclusão, acesso negado, limites, backup e restauração. Dados fictícios de teste devem ficar somente em preview/local.
+`npm test` cobre preços, respostas inválidas, condicionais e preservação de snapshots. Antes de lançamento, verifique em ambiente local ou de testes isolado o fluxo de lead completo, retry sem duplicação, uploads, publicação, todos os status, atenção, exclusão, acesso negado, limites, backup e restauração. Dados fictícios devem ficar somente em ambiente local ou de testes isolado. No Preview compartilhado, valide por leitura e não publique conteúdo de teste.
 
 ## Estrutura
 
@@ -159,3 +160,16 @@ Repita os dois comandos de mídia para cada chave do manifesto. Confira contagem
 - `scripts/`: backup local.
 
 Sem contas de clientes, checkout, pagamentos automáticos ou upload de referências de clientes nesta versão.
+
+
+## Idiomas e moedas
+
+O site inicia em português e guarda a escolha entre português e inglês no cookie `site_language` por um ano. Os endereços são compartilhados. A prévia do admin tem seleção independente e não altera esse cookie.
+
+Os campos “Inglês” são opcionais: quando vazios, o conteúdo original em português é exibido. A biografia e o processo também aceitam texto formatado em inglês. Imagens, contatos, condições das perguntas e tema são compartilhados.
+
+Em Formulários & preços, preencha o preço base e todos os adicionais em US$ para disponibilizar aquele serviço em dólares na versão inglesa. Um campo vazio significa “não configurado”; use zero para adicionais gratuitos. Se faltar qualquer preço em US$, o serviço inteiro permanece em reais. Não há conversão cambial. A versão portuguesa usa sempre reais.
+
+Cada pedido registra seu idioma e sua moeda; estimativa, detalhamento e preço final no admin usam a moeda registrada, mesmo após alterações nos preços do site. Pedidos antigos permanecem em BRL.
+
+A migração `0002_lead_locale_currency.sql` deve ser aplicada antes de uma futura implantação desta versão. Para validar apenas localmente, use `npm run db:local` (ou uma pasta isolada com `wrangler d1 migrations apply DB --local --persist-to <pasta>`). Esta implementação não publica o site nem executa migrações remotas.

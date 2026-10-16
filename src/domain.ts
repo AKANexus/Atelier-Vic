@@ -6,6 +6,8 @@ const cents = z.number().int().min(0).max(100_000_000);
 export const optionSchema = z.object({
   id,
   label: z.string().trim().min(1).max(150),
+  en: z.object({ label: z.string().trim().max(150).optional() }).optional(),
+  priceUsd: cents.nullable().optional(),
   price: cents,
   samples: z.array(id).max(3),
   manualReview: z.boolean(),
@@ -14,6 +16,12 @@ export const questionSchema = z.object({
   id,
   label: z.string().trim().min(1).max(200),
   help: z.string().max(500),
+  en: z
+    .object({
+      label: z.string().trim().max(200).optional(),
+      help: z.string().max(500).optional(),
+    })
+    .optional(),
   type: z.enum(["single", "multiple", "short", "long", "date"]),
   required: z.boolean(),
   manualReview: z.boolean(),
@@ -107,6 +115,20 @@ export const presentationDefaults = {
 
 export const configSchema = z
   .object({
+    en: z
+      .object({
+        brand: z.string().trim().max(100).optional(),
+        headline: z.string().trim().max(180).optional(),
+        intro: z.string().max(1000).optional(),
+        privacy: z.string().max(3000).optional(),
+        mainImageAlt: z.string().trim().max(200).optional(),
+        artistBio: z.union([z.string().max(3000), richTextSchema]).optional(),
+        carouselLabel: z.string().trim().max(100).optional(),
+        portfolioTitle: z.string().trim().max(180).optional(),
+        portfolioSubtitle: z.string().max(300).optional(),
+        processContent: richTextSchema.optional(),
+      })
+      .optional(),
     brand: z.string().trim().min(1).max(100),
     headline: z.string().trim().min(1).max(180),
     intro: z.string().max(1000),
@@ -141,6 +163,9 @@ export const configSchema = z
         z.object({
           id,
           name: z.string().trim().min(1).max(100),
+          en: z
+            .object({ name: z.string().trim().max(100).optional() })
+            .optional(),
           coverImageId: id.nullable().default(null),
           serviceId: id.nullable().default(null),
         }),
@@ -152,6 +177,13 @@ export const configSchema = z
         z.object({
           id,
           title: z.string().trim().min(1).max(150),
+          en: z
+            .object({
+              title: z.string().trim().max(150).optional(),
+              description: z.string().max(500).optional(),
+              alt: z.string().trim().max(200).optional(),
+            })
+            .optional(),
           description: z.string().max(500),
           categoryId: id.nullable().default(null),
           alt: z.string().trim().min(1).max(200),
@@ -165,6 +197,13 @@ export const configSchema = z
           name: z.string().trim().min(1).max(100),
           description: z.string().max(500),
           basePrice: cents,
+          basePriceUsd: cents.nullable().optional(),
+          en: z
+            .object({
+              name: z.string().trim().max(100).optional(),
+              description: z.string().max(500).optional(),
+            })
+            .optional(),
           questions: z.array(questionSchema).max(50),
         }),
       )
@@ -291,8 +330,14 @@ export const statusSchema = z.enum([
   "approved",
   "paid",
 ]);
-export const money = (value: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+export type Locale = "pt-BR" | "en-US";
+export type Currency = "BRL" | "USD";
+export const money = (
+  value: number,
+  currency: Currency = "BRL",
+  locale: Locale = "pt-BR",
+) =>
+  new Intl.NumberFormat(locale, { style: "currency", currency }).format(
     value / 100,
   );
 export const defaultConfig: Config = {
@@ -330,7 +375,23 @@ export function visible(q: Question, answers: Answers): boolean {
     : value === q.condition.optionId;
 }
 
-export function quote(service: Service, input: Answers, complete = true) {
+export function quote(
+  service: Service,
+  input: Answers,
+  complete = true,
+  locale: Locale = "pt-BR",
+) {
+  const currency = serviceCurrency(service, locale);
+  service = localizedService(service, locale);
+  if (currency === "USD")
+    service = {
+      ...service,
+      basePrice: service.basePriceUsd!,
+      questions: service.questions.map((q) => ({
+        ...q,
+        options: q.options.map((o) => ({ ...o, price: o.priceUsd! })),
+      })),
+    };
   const known = new Set(service.questions.map((q) => q.id));
   if (Object.keys(input).some((key) => !known.has(key)))
     throw new Error("Há respostas para perguntas desconhecidas.");
@@ -397,7 +458,15 @@ export function quote(service: Service, input: Answers, complete = true) {
   }
   if (!Number.isSafeInteger(total) || total > 100_000_000)
     throw new Error("A estimativa excede o limite permitido.");
-  return { total, answers, breakdown, snapshot, manualReview };
+  return {
+    total,
+    answers,
+    breakdown,
+    snapshot,
+    manualReview,
+    currency,
+    locale,
+  };
 }
 
 export function mediaIds(config: Config): string[] {
@@ -426,6 +495,8 @@ export interface Media {
   state: string;
 }
 export interface Lead {
+  locale: Locale;
+  currency: Currency;
   id: string;
   name: string;
   email: string;
@@ -468,4 +539,47 @@ export function portfolioCategories(config: Config) {
     works,
   });
   return categories;
+}
+
+// Resolve translations independently so partially translated content remains usable.
+export function localized<T extends { en?: object }>(
+  value: T,
+  locale: Locale,
+): T {
+  if (locale !== "en-US" || !value.en) return value;
+  const translated = Object.fromEntries(
+    Object.entries(value.en).filter(([, field]) =>
+      typeof field === "string"
+        ? !!field.trim()
+        : Array.isArray(field) &&
+          field.some((block) =>
+            block.spans?.some((span: { text: string }) => span.text.trim()),
+          ),
+    ),
+  );
+  return { ...value, ...translated };
+}
+export function serviceCurrency(service: Service, locale: Locale): Currency {
+  return locale === "en-US" &&
+    service.basePriceUsd != null &&
+    service.questions.every((q) => q.options.every((o) => o.priceUsd != null))
+    ? "USD"
+    : "BRL";
+}
+export function localizedService(service: Service, locale: Locale): Service {
+  return {
+    ...localized(service, locale),
+    questions: service.questions.map((q) => ({
+      ...localized(q, locale),
+      options: q.options.map((o) => localized(o, locale)),
+    })),
+  };
+}
+export function localizedConfig(config: Config, locale: Locale): Config {
+  return {
+    ...localized(config, locale),
+    categories: config.categories.map((c) => localized(c, locale)),
+    gallery: config.gallery.map((g) => localized(g, locale)),
+    services: config.services.map((s) => localizedService(s, locale)),
+  };
 }

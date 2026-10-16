@@ -1,9 +1,11 @@
 import React, { Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import Portfolio from "./Portfolio";
+import PreviewNotice from "./PreviewNotice";
 import { legacyDestination, publicRoute } from "./publicRoutes";
 import "./styles.css";
 import "./public.css";
+import "./preview.css";
 function redirectLegacyLink() {
   const legacy = legacyDestination(
     window.location.pathname,
@@ -25,5 +27,6 @@ createRoot(document.getElementById("root")!).render(
         />
       )}
     </Suspense>
+    <PreviewNotice />
   </React.StrictMode>,
 );

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280">
+<defs><path id="star" d="M0,-1 0.2245,-0.309 0.9511,-0.309 0.3633,0.118 0.5878,0.809 0,0.382 -0.5878,0.809 -0.3633,0.118 -0.9511,-0.309 -0.2245,-0.309Z"/><clipPath id="disc"><circle cx="140" cy="100" r="50"/></clipPath><linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="140"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><mask id="watermark-fade" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="280"><path fill="url(#fade)" d="M0 0h200v280H0z"/></mask></defs>
+<g opacity=".12" mask="url(#watermark-fade)"><g transform="translate(200 0) rotate(90)"><path fill="#009b3a" d="M0 0h280v200H0z"/><path fill="#ffdf00" d="m140 17 123 83-123 83L17 100z"/><circle cx="140" cy="100" r="50" fill="#002776"/>
+<path d="M89 84Q145 78 190 119" fill="none" stroke="#fff" stroke-width="8" clip-path="url(#disc)"/>
+<use href="#star" fill="#fff" transform="translate(155 80) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(110 101) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(120 109) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(107 119) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(116 127) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(125 119) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(134 126) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(142 115) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(147 127) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(152 139) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(159 127) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(163 117) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(172 122) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(175 134) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(165 139) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(140 139) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(129 137) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(121 132) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(149 106) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(135 105) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(125 99) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(101 108) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(157 112) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(168 128) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(145 146) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(137 132) scale(2)"/>
+<use href="#star" fill="#fff" transform="translate(158 133) scale(2)"/>
+</g></g></svg>

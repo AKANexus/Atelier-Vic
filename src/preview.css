@@ -1,0 +1,61 @@
+.preview-build {
+  --preview-notice-height: 76px;
+  scroll-padding-bottom: calc(var(--preview-notice-height) + 16px);
+}
+.preview-build body {
+  padding-bottom: var(--preview-notice-height);
+}
+.preview-notice {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 1000;
+  padding: 16px 20px calc(10px + env(safe-area-inset-bottom));
+  background: #ffdf45;
+  color: #171717;
+  text-align: center;
+  font:
+    13px/1.45 "Sora Variable",
+    system-ui,
+    sans-serif;
+  box-shadow: 0 -3px 18px #0004;
+}
+.preview-notice::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 8px;
+  background: repeating-linear-gradient(
+    135deg,
+    #171717 0 12px,
+    #ffdf45 12px 24px
+  );
+}
+.preview-notice p {
+  margin: 0;
+}
+.preview-notice strong {
+  font-weight: 800;
+}
+.preview-notice p + p {
+  margin-top: 2px;
+  font-size: 11px;
+}
+.preview-build .admin-sidebar {
+  bottom: var(--preview-notice-height);
+}
+.preview-build :is(.preview-overlay, .modal-overlay, .lightbox) {
+  bottom: var(--preview-notice-height);
+}
+.preview-build .portfolio-dialog {
+  max-height: calc(100dvh - var(--preview-notice-height) - 40px);
+  margin-block: 20px calc(var(--preview-notice-height) + 20px);
+}
+.preview-build .portfolio-dialog::backdrop {
+  bottom: var(--preview-notice-height);
+}
+@media (max-width: 520px) {
+  .preview-notice {
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+}
